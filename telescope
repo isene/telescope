@@ -396,7 +396,8 @@ def w_ep_show
       d    = scope[1]
       f    = scope[2]
       mag  = (f.to_f/m)
-      out  = mag.truncate(1).to_s.rjust(8)
+      @w_ep.pa(254, 0, 0, " │")
+      out  = mag.truncate(1).to_s.rjust(6)
       @w_ep.pa(156, 0, 0, out)
       fov  = a/mag
       deg  = fov.to_i
