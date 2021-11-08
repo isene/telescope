@@ -1,0 +1,519 @@
+#!/usr/bin/env ruby
+# encoding: utf-8
+@help = <<HELPTEXT
+Welcome to Telescope v0.2 - By Geir Isene (https://isene.com). This program is an aid for the amateur astronomer.
+It shows basic info about your telescopes and your eyepieces in combination with your telescopes.
+The top panel lists your telescopes with a set of properties. To add a telescope, press 't' and in the "command line"
+at the bottom enter a name, the apperature (APP) and the focal length (FL) of your telescope, then press ENTER. 
+The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. Enter a name,
+the focal length (FL) and apparent field of view (AFOV) and press ENTER.
+You can select the telescope and eyepiece panel by pressing TAB, and each element of a panel by the UP and DOWN cursor keys. 
+Upon selecting an item, press ENTER and change the values in the command line. Delete an item by pressing 'D'.
+Move an item up or down in a panel by pressing the PgUP or PgDown keys. Refresh all panels with the 'r' key.
+You can escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' or 'Q' if you don't want to
+save your edits since last session. Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
+Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
+
+LIST OF TELESCOPE ABBREVIATIONS:                                           LIST OF EYEPIECE ABBREVIATIONS:
+APP    = Apperature (in millimeters)                                       FL    = Focal Length (in millimeters)
+FL     = Focal Length (in millimeters)                                     AFOV  = Apparent Field Of View
+F/?    = Focal ratio (FL/APP)                                              xMAGN = Magnification (with that telescope)
+<MAG   = Maximum magnitude visible                                         FOV   = True Field Of View (deg/min/sec)
+xEYE   = Light gathering compared to the human eye                         XPUP  = Exit pupil (in millimeters)
+MINx   = Minimum usable magnification (may be lower for refractors)
+MAXx   = Maximum usable magnification
+*FIELD = Recommended magnification for star fields
+GX/NEB = Recommended magnification for galaxies and nebulae
+PL/GCL = Recommended magnification for planets and globular clusters
+PLd/2* = Recommended magnification for planet details and double stars
+TGHT2* = Recommended magnification for tight double stars
+DL-SEP = Minimum separation, Dawes limit
+RC-SEP = Minimum separation, Rayleigh limit
+MOON   = Minimum feature resolved on the Moon (in meters)
+SUN    = Minimum feature resolved on the Sun (in kilometers)
+HELPTEXT
+begin # BASIC SETUP
+  if `tput cols`.to_i < 140
+    puts "You must run Telescope with a minimum tarminal width of 140 chracters."
+  end
+  require 'io/console'
+  require 'curses'
+  include  Curses
+
+  Curses.init_screen
+  Curses.start_color
+  Curses.curs_set(0)
+  Curses.noecho
+  Curses.cbreak
+  Curses.stdscr.keypad = true
+
+  @ts = []
+  @ep = []
+  
+  @tsmark = false
+  @epmark = false
+end
+if File.exist?(Dir.home+'/.telescope')
+  load(Dir.home+'/.telescope')
+end
+class Numeric # NUMERIC CLASS EXTENSION
+	def deg
+	  self * Math::PI / 180 
+  end
+end
+class Curses::Window # CLASS EXTENSION 
+  # General extensions (see https://github.com/isene/Ruby-Curses-Class-Extension)
+  attr_accessor :color, :fg, :bg, :attr, :update
+  # Set self.color for an already defined color pair such as: init_pair(1, 255, 3)
+  # The color pair is defined like this: init_pair(index, foreground, background)
+  # self.fg is set for the foreground color (and is used if self.color is not set)
+  # self.bg is set for the background color (and is used if self.color is not set)
+  # self.attr is set for text attributes like Curses::A_BOLD
+  def clr # Clears the whole window
+    self.setpos(0, 0)
+    self.maxy.times {self.deleteln()}
+    self.refresh
+    self.setpos(0, 0)
+  end
+  def clr_to_cur_line
+    l = self.cury
+    self.setpos(0, 0)
+    l.times {self.deleteln()}
+    self.refresh
+  end
+  def clr_from_cur_line
+    l = self.cury
+    (self.maxy - l).times {self.deleteln()}
+    self.refresh
+    self.setpos(l, 0)
+  end
+  def fill # Fill window with color as set by self.color (or self.bg if not set) 
+    self.setpos(0, 0)
+    self.fill_from_cur_pos
+  end
+  def fill_to_cur_pos # Fills the window up to current line
+    x = self.curx
+    y = self.cury
+    self.setpos(0, 0)
+    blank = " " * self.maxx
+    if self.color == nil
+      self.bg = 0 if self.bg   == nil
+      self.fg = 255 if self.fg == nil
+      init_pair(self.fg, self.fg, self.bg)
+      y.times {self.attron(color_pair(self.fg)) {self << blank}}
+    else
+      y.times {self.attron(color_pair(self.color)) {self << blank}}
+    end
+    self.refresh
+    self.setpos(y, x)
+  end
+  def fill_from_cur_pos # Fills the rest of the window from current line
+    x = self.curx
+    y = self.cury
+    self.setpos(y, 0)
+    blank = " " * self.maxx
+    if self.color == nil
+      self.bg = 0 if self.bg   == nil
+      self.fg = 255 if self.fg == nil
+      init_pair(self.fg, self.fg, self.bg)
+      self.maxy.times {self.attron(color_pair(self.fg)) {self << blank}}
+    else
+      self.maxy.times {self.attron(color_pair(self.color)) {self << blank}}
+    end
+    self.refresh
+    self.setpos(y, x)
+  end
+  def p(text) # Puts text to window
+    self.attr = 0 if self.attr == nil
+    if self.color == nil
+      self.bg = 0 if self.bg   == nil
+      self.fg = 255 if self.fg == nil
+      init_pair(self.fg, self.fg, self.bg)
+      self.attron(color_pair(self.fg) | self.attr) { self << text }
+    else
+      self.attron(color_pair(self.color) | self.attr) { self << text }
+    end
+    self.refresh
+  end
+  def pclr(text) # Puts text to window and clears the rest of the window
+    self.p(text)
+    self.clr_from_cur_line
+  end
+  def paclr(fg, bg, attr, text) # Puts text to window with full set of attributes and clears rest of window
+    self.paclr(fg, bg, attr, text)
+    self.clr_from_cur_line
+  end
+  def pa(fg, bg, attr, text) # Puts text to window with full set of attributes
+    self.fg = fg
+    self.bg = bg
+    self.attr = attr
+    init_pair(self.fg, self.fg, self.bg)
+    self.attron(color_pair(self.fg) | self.attr) { self << text }
+    self.refresh
+  end
+end
+def getchr # PROCESS KEY PRESSES
+  c = STDIN.getch
+  case c
+  when "\e"    # ANSI escape sequences
+    case $stdin.getc
+    when '['   # CSI
+      case $stdin.getc
+      when 'A' then chr = "UP"
+      when 'B' then chr = "DOWN"
+      when 'C' then chr = "RIGHT"
+      when 'D' then chr = "LEFT"
+      when 'Z' then chr = "S-TAB"
+      when '2' then chr = "INS"    ; STDIN.getc
+      when '3' then chr = "DEL"    ; STDIN.getc
+      when '5' then chr = "PgUP"   ; STDIN.getc
+      when '6' then chr = "PgDOWN" ; STDIN.getc
+      when '7' then chr = "HOME"   ; STDIN.getc
+      when '8' then chr = "END"    ; STDIN.getc
+      end
+    end
+  when "", "" then chr = "BACK"
+  when "" then chr = "WBACK"
+  when "" then chr = "LDEL"
+  when "" then chr = "C-T"
+  when "" then chr = "C-G"
+  when "\r" then chr = "ENTER"
+  when "\t" then chr = "TAB"
+  when /./  then chr = c
+  end
+  return chr
+end
+def main_getkey # GET KEY FROM USER
+  chr = getchr
+  case chr
+  when '?' # Show helptext in right window 
+    @w_ep.clr
+    @w_ep.pa(249, 0, 0, @help)
+    @w_ep.p("\n...Press any key to continue")
+    getch
+  when 'TAB'
+    if @tsmark
+      @tsmark = false
+      @epmark = 0
+    elsif @epmark
+      @epmark = false
+      @tsmark = false
+    else
+      @tsmark = 0
+      @epmark = false
+    end
+  when 'C-G'
+    @epmark = false
+    @tsmark = false
+  when 'ENTER'
+    if @tsmark
+      out  = "#{@ts[@tsmark][0]}, #{@ts[@tsmark][1]}, #{@ts[@tsmark][2]}"
+      ret = w_cm_getstr("", out).split(",")
+      return if ret.length != 3
+      ret[1] = ret[1].to_i
+      ret[2] = ret[2].to_i
+      @ts[@tsmark] = ret
+    elsif @epmark
+      out  = "#{@ep[@epmark][0]}, #{@ep[@epmark][1]}, #{@ep[@epmark][2]}"
+      ret = w_cm_getstr("", out).split(",")
+      return if ret.length != 3
+      ret[1] = ret[1].to_f
+      ret[2] = ret[2].to_i
+      @ep[@epmark] = ret
+    end
+  when 't'
+    return if @ts.length == 5
+    ret = w_cm_getstr("", "Telescope, App, FL").split(",")
+    return if ret.length != 3
+    ret[1] = ret[1].to_i
+    ret[2] = ret[2].to_i
+    ret[1] = 1 if ret[1] == 0
+    ret[2] = 1 if ret[2] == 0
+    @ts[@ts.length] = ret
+  when 'e'
+    ret = w_cm_getstr("", "Eyepiece, FL, AFOV").split(",")
+    return if ret.length != 3
+    ret[1] = ret[1].to_f
+    ret[2] = ret[2].to_i
+    ret[1] = 1 if ret[1] == 0
+    ret[2] = 1 if ret[2] == 0
+    @ep[@ep.length] = ret
+  when 'D'
+    if @tsmark
+      @ts.delete_at(@tsmark)
+      @tsmark -= 1
+    elsif @epmark
+      @ep.delete_at(@epmark)
+      @epmark -= 1
+    end
+  when 'UP' # Examples of moving up and down in a window
+    if @tsmark
+      @tsmark -= 1 unless @tsmark == 0
+    elsif @epmark
+      @epmark -= 1 unless @epmark == 0
+    end
+  when 'DOWN'
+    if @tsmark
+      @tsmark += 1 unless @tsmark == @ts.length - 1
+    elsif @epmark
+      @epmark += 1 unless @epmark == @ep.length - 1
+    end
+  when 'PgUP'
+    if @tsmark
+      t = @ts.delete_at(@tsmark)
+      @tsmark -= 1 unless @tsmark == 0
+      @ts.insert(@tsmark, t)
+    elsif @epmark
+      e = @ep.delete_at(@epmark)
+      @epmark -= 1 unless @epmark == 0
+      @ep.insert(@epmark, e)
+    end
+  when 'PgDOWN'
+    if @tsmark
+      t = @ts.delete_at(@tsmark)
+      @tsmark += 1 unless @tsmark == @ts.length
+      @ts.insert(@tsmark, t)
+    elsif @epmark
+      e = @ep.delete_at(@epmark)
+      @epmark += 1 unless @epmark == @ep.length
+      @ep.insert(@epmark, e)
+    end
+  when 'HOME'
+    if @tsmark
+      @tsmark = 0
+    elsif @epmark
+      @epmark = 0
+    end
+  when 'END'
+    if @tsmark
+      @tsmark = @ts.length - 1
+    elsif @epmark
+      @epmark = @ep.length - 1
+    end
+  when 'b'
+    File.write(Dir.home+'/.telescope.bu',"@ts = #{@ts}\n@ep = #{@ep}")
+  when 'B'
+    if File.exist?(Dir.home+'/.telescope.bu')
+      load(Dir.home+'/.telescope.bu')
+    end
+  when 'r'
+    @break = true
+  when 'q' # Exit 
+    File.write(Dir.home+'/.telescope',"@ts = #{@ts}\n@ep = #{@ep}")
+    exit 0
+  when 'Q' # Exit 
+    exit 0
+  else
+  end
+end
+
+# TELESCOPE FUNCTIONS (top window,    w_ts) 
+def w_ts_show
+  @w_ts.setpos(0,0)
+  heading = " TELESCOPES       APP(mm)  FL(mm)  F/?  <MAG  xEYE   MINx    MAXx   *FIELD  GX/NEB  PL/GCL  PLd/2*  TGHT2*  DL-SEP  RC-SEP  MOON   SUN"
+  heading += " " * (@w_ts.maxx - heading.length).abs
+  @w_ts.pa(255, 94, Curses::A_BOLD, heading)
+  @w_ts.fg = 15
+  @w_ts.bg =  0
+  @ts.each_with_index do |scope, i|
+    name = scope[0]
+    d    = scope[1]
+    f    = scope[2]
+    out  = " " + name.ljust(15)
+    out += d.to_s.rjust(8)
+    out += f.to_s.rjust(8)
+    @tsmark == i ? attr = Curses::A_BOLD | Curses::A_REVERSE : attr = Curses::A_BOLD
+    @w_ts.pa(254, 0, attr, out)
+    out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
+    out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
+    @w_ts.pa(254, 0, 0, out)
+    out  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s.rjust(6)
+    @w_ts.pa(229, 0, 0, out)
+    out  = (d**2/49).to_i.to_s.rjust(6)
+    @w_ts.pa(229, 0, 0, out)
+    out  = magx(d, f, 1/7.to_f)
+    @w_ts.pa(194, 0, 0, out)
+    out  = magx(d, f, 2)
+    @w_ts.pa(194, 0, 0, out)
+    out  = magx(d, f, 1/6.4)
+    @w_ts.pa(189, 0, 0, out)
+    out  = magx(d, f, 1/3.6)
+    @w_ts.pa(189, 0, 0, out)
+    out  = magx(d, f, 1/2.1)
+    @w_ts.pa(189, 0, 0, out)
+    out  = magx(d, f, 1/1.3)
+    @w_ts.pa(189, 0, 0, out)
+    out  = magx(d, f, 1/0.7)
+    @w_ts.pa(189, 0, 0, out)
+    out  = (115.824/d).truncate(2).to_s.rjust(7)
+    @w_ts.pa(219, 0, 0, out)
+    out  = (3600*Math::asin(671E-6/d)*180/Math::PI).truncate(2).to_s.rjust(8)
+    @w_ts.pa(219, 0, 0, out)
+    moon = (384E6*Math::tan((Math::PI/180*115.824/d)/3600))
+    out  = moon.to_i.to_s.rjust(6) + "m"
+    @w_ts.pa(225, 0, 0, out)
+    out  = (moon/2.5668).to_i.to_s.rjust(5) + "km"
+    @w_ts.pa(225, 0, 0, out)
+    @w_ts.p("\n")
+  end
+  @w_ts.clr_from_cur_line
+end
+def magx(d, f, r)
+  m = d * r
+  e = f / m
+  return (m.to_i.to_s + "(" + e.to_i.to_s + ")").rjust(8)
+end
+
+# EYEPIECE FUNCTIONS  (middle window, w_ep)
+def w_ep_show
+  @w_ep.setpos(0,0)
+  scopes   = 5
+  heading  = " ".rjust(32)
+  @w_ep.pa(231, 240, 0, heading)
+  @ts.each do |scope| 
+    @w_ep.pa(231, 240, Curses::A_BOLD, "│ ")
+    heading = scope[0].ljust(22)
+    @w_ep.pa(172, 240, Curses::A_BOLD, heading)
+  end
+  heading = " " * (@w_ep.maxx - @w_ep.curx)
+  @w_ep.p(heading)
+  heading = " EYEPIECES         FL(mm)  AFOV "
+  heading += "│ xMAGN  FOV(dms)  XPUP " * @ts.length
+  heading += " " * (@w_ep.maxx - heading.length).abs
+  @w_ep.pa(231, 240, Curses::A_BOLD, heading)
+  @w_ep.fg = 15
+  @w_ep.bg =  0
+  @ep.each_with_index do |ep, i|
+    name = ep[0]
+    m    = ep[1].truncate(1)
+    a    = ep[2]
+    out  = " " + name.ljust(15)
+    out += m.to_s.rjust(8)
+    out += a.to_s.rjust(6) + "°"
+    @epmark == i ? attr = Curses::A_BOLD | Curses::A_REVERSE : attr = Curses::A_BOLD
+    @w_ep.pa(253, 0, attr, out)
+    @ts.each do |scope|
+      d    = scope[1]
+      f    = scope[2]
+      mag  = (f.to_f/m)
+      out  = mag.truncate(1).to_s.rjust(8)
+      @w_ep.pa(156, 0, 0, out)
+      fov  = a/mag
+      deg  = fov.to_i
+      mins = ((fov - fov.to_i) * 60)
+      min  = mins.to_i
+      sec  = ((mins - min) * 60).to_i
+      deg == 0 ? dgo   =  "   " : dgo = deg.to_s + "°"
+      mno  = min.to_s.rjust(2, " ") + "'"
+      sco  = sec.to_s.rjust(2, " ") + "\""
+      out  = (dgo + mno + sco).rjust(10)
+      @w_ep.pa(222, 0, 0, out)
+      out  = (d/mag).truncate(1).to_s.rjust(6)
+      @w_ep.pa(209, 0, 0, out)
+    end
+    @w_ep.p("\n")
+  end
+  @w_ep.clr_from_cur_line
+end
+
+# COMMAND FUNCTIONS   (bottom window, w_cm) 
+def w_cm_show
+  @w_cm.fill
+  @w_cm.p(" Telescope v0.2 - By Geir Isene (https://isene.com)")
+end
+def w_cm_getstr(pretext, text) # A SIMPLE READLINE-LIKE ROUTINE
+  Curses.curs_set(1)
+  Curses.echo
+  pos = text.length
+  chr = ""
+  while chr != "ENTER"
+    @w_cm.setpos(0,0)
+    init_pair(250, 250, 238)
+    text += " " * (@w_cm.maxx - text.length) if text.length < @w_cm.maxx
+    @w_cm.attron(color_pair(250)) { @w_cm << pretext + text }
+    @w_cm.setpos(0,pretext.length + pos)
+    @w_cm.refresh
+    chr = getchr
+    if chr == "C-G"
+      Curses.curs_set(0)
+      Curses.noecho
+      @w_cm.update = true
+      return "" 
+    end
+    case chr
+    when 'RIGHT'
+      pos += 1 unless pos > text.length
+    when 'LEFT'
+      pos -= 1 unless pos == 0
+    when 'HOME'
+      pos = 0
+    when 'END'
+      pos = text.length
+    when 'DEL'
+      text[pos] = ""
+    when 'BACK'
+      unless pos == 0
+        pos -= 1
+        text[pos] = ""
+      end
+    when 'WBACK'
+      unless pos == 0
+        until text[pos - 1] == " " or pos == 0
+          pos -= 1
+          text[pos] = ""
+        end
+        if text[pos - 1] == " "
+          pos -= 1
+          text[pos] = ""
+        end
+      end
+    when 'LDEL'
+      text = ""
+      pos = 0
+    when /^.$/
+      text.insert(pos,chr)
+      pos += 1
+    end
+  end
+  curstr = text
+  Curses.curs_set(0)
+  Curses.noecho
+  return curstr
+end
+
+# MAIN PROGRAM 
+loop do # OUTER LOOP - (catching refreshes via 'r')
+  @break = false # Initialize @break variable (set if user hits 'r')
+  begin # Create the four windows/panels 
+  if Curses.stdscr.maxx < 140
+    break
+  end
+    Curses.stdscr.bg = 236
+    Curses.stdscr.fg = 236
+    Curses.stdscr.fill
+    maxx = Curses.cols
+    maxy = Curses.lines
+    # Curses::Window.new(h,w,y,x)
+    @w_ts = Curses::Window.new(7, maxx - 2, 1, 1)
+    @w_ep = Curses::Window.new(maxy - 10, maxx - 2, 9, 1)
+    @w_cm = Curses::Window.new(1, maxx, maxy - 1, 0)
+    @w_ts.fg, @w_ts.bg =  15,   0
+    @w_ep.fg, @w_ep.bg = 255, 232
+    @w_cm.fg, @w_cm.bg = 233, 246
+    @w_ts.clr
+    @w_ep.clr
+    @w_cm.fill
+    loop do # INNER, CORE LOOP 
+      w_ts_show
+      w_ep_show
+      w_cm_show
+      main_getkey        # Get key from user 
+      break if @break    # Break to outer loop, redrawing windows, if user hit 'r'
+      break if Curses.cols != maxx or Curses.lines != maxy # break on terminal resize 
+    end
+  ensure # On exit: close curses, clear terminal 
+    close_screen
+  end
+end
+
+# vim: set sw=2 sts=2 et fdm=syntax fdn=2 fcs=fold\:\ :
