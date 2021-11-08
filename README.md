@@ -28,29 +28,33 @@ You can install telescope by simply coloning this repo and put the file `telesco
 
 In order to run telescope (without generating [a bunch of warnings](https://github.com/isene/RTFM/issues/1)), you need to do a `gem install curses` (gets version 1.3.2) instead of installing via `apt install ruby-curses` (gets version 1.2.4-1build1 on Ubuntu 20.04). 
 
-List of telescope abbreviations:                                          
----------|---------------------------------------------------------------
-APP      | Apperature (in millimeters)                                      
-FL       | Focal Length (in millimeters)                                    
-F/?      | Focal ratio (FL/APP)                                             
-\<MAG    | Maximum magnitude visible                                        
-xEYE     | Light gathering compared to the human eye                        
-MINx     | Minimum usable magnification (may be lower for refractors)
-MAXx     | Maximum usable magnification
-\*FIELD  | Recommended magnification for star fields
-GX/NEB   | Recommended magnification for galaxies and nebulae
-PL/GCL   | Recommended magnification for planets and globular clusters
-PLd/2\*  | Recommended magnification for planet details and double stars
-TGHT2\*  | Recommended magnification for tight double stars
-DL-SEP   | Minimum separation, Dawes limit
-RC-SEP   | Minimum separation, Rayleigh limit
-MOON     | Minimum feature resolved on the Moon (in meters)
-SUN      | Minimum feature resolved on the Sun (in kilometers)
+##List of telescope abbreviations
 
-List of eyepiece abbreviations:            
-------|--------------------------------------------------------------------                                           
-FL    | Focal Length (in millimeters)      
-AFOV  | Apparent Field Of View             
-xMAGN | Magnification (with that telescope)
-FOV   | True Field Of View (deg/min/sec)   
-XPUP  | Exit pupil (in millimeters)        
+Abbreviation | Meaning
+-------------|-----------------------------------------------------------
+APP          | Apperature (in millimeters)                                      
+FL           | Focal Length (in millimeters)                                    
+F/?          | Focal ratio (FL/APP)                                             
+\<MAG        | Maximum magnitude visible                                        
+xEYE         | Light gathering compared to the human eye                        
+MINx         | Minimum usable magnification (may be lower for refractors)
+MAXx         | Maximum usable magnification
+\*FIELD      | Recommended magnification for star fields
+GX/NEB       | Recommended magnification for galaxies and nebulae
+PL/GCL       | Recommended magnification for planets and globular clusters
+PLd/2\*      | Recommended magnification for planet details and double stars
+TGHT2\*      | Recommended magnification for tight double stars
+DL-SEP       | Minimum separation, Dawes limit
+RC-SEP       | Minimum separation, Rayleigh limit
+MOON         | Minimum feature resolved on the Moon (in meters)
+SUN          | Minimum feature resolved on the Sun (in kilometers)
+
+##List of eyepiece abbreviations
+
+Abbreviation | Meaning
+-------------|-------------------------------------------------------------                                           
+FL           | Focal Length (in millimeters)      
+AFOV         | Apparent Field Of View             
+xMAGN        | Magnification (with that telescope)
+FOV          | True Field Of View (deg/min/sec)   
+XPUP         | Exit pupil (in millimeters)        
