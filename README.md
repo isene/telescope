@@ -1,4 +1,4 @@
-# Telescope (terminal/curses program to aid amateur astronomers)
+# Telescope (console program for amateur astronomers)
 Welcome to Telescope v0.2 - By Geir Isene (https://isene.com). This program is an aid for the amateur astronomer.
 
 It shows basic info about your telescopes and your eyepieces in combination with your telescopes.
