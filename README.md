@@ -28,7 +28,7 @@ You can install telescope by simply coloning this repo and put the file `telesco
 
 In order to run telescope (without generating [a bunch of warnings](https://github.com/isene/RTFM/issues/1)), you need to do a `gem install curses` (gets version 1.3.2) instead of installing via `apt install ruby-curses` (gets version 1.2.4-1build1 on Ubuntu 20.04). 
 
-##List of telescope abbreviations
+## List of telescope abbreviations
 
 Abbreviation | Meaning
 -------------|-----------------------------------------------------------
@@ -49,7 +49,7 @@ RC-SEP       | Minimum separation, Rayleigh limit
 MOON         | Minimum feature resolved on the Moon (in meters)
 SUN          | Minimum feature resolved on the Sun (in kilometers)
 
-##List of eyepiece abbreviations
+## List of eyepiece abbreviations
 
 Abbreviation | Meaning
 -------------|-------------------------------------------------------------                                           
