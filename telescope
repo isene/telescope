@@ -11,17 +11,17 @@
   don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
   Telescope and eyepiece data is saved in the file '.telescope' in your home directory (backup file is '.telescope.bu').
 
-  LIST OF TELESCOPE ABBREVIATIONS:                                                         LIST OF EYEPIECE ABBREVIATIONS:
-  APP, FL, F/? = Apperature and Focal Length (millimeters) and F-ratio                     FL     = Focal Length (in millimeters)
-  <MAG         = Maximum magnitude visible                                                 AFOV   = Apparent Field Of View
-  xEYE         = Light gathering compared to the human eye                                 xMAGN  = Magnification (with that telescope)
-  MINx, MAXx   = Minimum and maximum usable magnification                                  FOV    = True Field Of View (deg/min/sec)
-                                                                                           XPUP   = Exit pupil (in millimeters)
+  LIST OF TELESCOPE ABBREVIATIONS:                                                           LIST OF EYEPIECE ABBREVIATIONS:
+  APP, FL, F/? = Apperature and Focal Length (millimeters) and F-ratio                       FL     = Focal Length (in millimeters)
+  <MAG         = Maximum magnitude visible                                                   AFOV   = Apparent Field Of View
+  xEYE         = Light gathering compared to the human eye                                   xMAGN  = Magnification (with that telescope)
+  MINx, MAXx   = Minimum and maximum usable magnification                                    FOV    = True Field Of View (deg/min/sec)
+                                                                                             XPUP   = Exit pupil (in millimeters)
   Recommended magnifications for objects:
-  *FIELD (star fields), GX/NEB (galaxies/nebulae), PL/GCL (planets/globular clusters), 
-  PLd/2* (planet details/double stars), TGHT2* = tight double stars
-  DL/RC-SEP     = Minimum separation, Dawes limit and Rayleigh limit
-  MOON, SUN     = Minimum feature resolved on the Moon (meters) & Sun (kilometers)
+        *FIELD = star fields, GX/NEB = galaxies/nebulae, PL/GCL = planets/globular clusters 
+        PLd/2* = planet details/double stars, TGHT2* = tight double stars
+  DL/RC-SEP    = Minimum separation, Dawes limit and Rayleigh limit
+  MOON, SUN    = Minimum feature resolved on the Moon (meters) & Sun (kilometers)
 HELPTEXT
 begin # BASIC SETUP
   if `tput cols`.to_i < 140
