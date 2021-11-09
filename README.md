@@ -1,33 +1,20 @@
 # Telescope
 Welcome to Telescope - a terminal/console program for the amateur astronomer.
 
-The top panel lists your telescopes. To add a telescope, press 't' and in the "command line"
-at the bottom enter a name, the apperature (APP) and the focal length (FL) and press ENTER. 
+The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by pressing TAB, then UP/DOWN cursor keys. Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
 
-The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. 
-Enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER.
+Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
 
-Select the telescope and eyepiece panel by pressing TAB, and use the UP, DOWN, HOME and END cursor keys. 
+Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' (or 'Q' if you don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
 
-Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'.
-
-Move an item up or down in a panel by pressing the PgUP or PgDown keys. 
-
-Tag items for use in an observation using the SPACE key (untag all with 'u'). Press 'o' to create an observation
-log file with the tagged equipment. The content of the file is then shown in the lower panel.
-
-Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. 
-
-Quit via 'q' (or 'Q' if you don't want to save your edits since last session). 
-
-Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
-
-Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
+Telescope and eyepiece data is saved in the file '.telescope' in your home directory (backup file is '.telescope.bu').
 
 ## Installation
-You can install telescope by simply coloning this repo and put the file `telescope` in your "bin" directory.
+You can install telescope by simply coloning this repo and put the file `telescope` in your "bin" directory. Or you can simply do `gem install telescope-term`.
 
-In order to run telescope (without generating [a bunch of warnings](https://github.com/isene/RTFM/issues/1)), you need to do a `gem install curses` (gets version 1.3.2) instead of installing via `apt install ruby-curses` (gets version 1.2.4-1build1 on Ubuntu 20.04). 
+In order to run telescope (without generating [a bunch of warnings](https://github.com/isene/RTFM/issues/1)), you need to do a `gem install curses` (gets version 1.3.2) instead of installing via `apt install ruby-curses` (gets version 1.2.4-1build1 on Ubuntu 20.04). The installation via gem automatically takes care of this.
+
+After installation, fire up the program and press '?' to display the help text.
 
 ## List of telescope abbreviations
 

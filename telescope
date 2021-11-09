@@ -1,27 +1,22 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 @help = <<HELPTEXT
-  Welcome to Telescope - a terminal/console program for the amateur astronomer.
-  The top panel lists your telescopes. To add a telescope, press 't' and in the "command line"
-  at the bottom enter a name, the apperature (APP) and the focal length (FL) and press ENTER. 
-  The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. 
-  Enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER.
-  Select the telescope and eyepiece panel by pressing TAB, and use the UP, DOWN, HOME and END cursor keys. 
-  Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'.
-  Move an item up or down in a panel by pressing the PgUP or PgDown keys. 
-  Tag items for use in an observation using the SPACE key (untag all with 'u'). Press 'o' to create an observation
-  log file with the tagged equipment. The content of the file is then shown in the lower panel.
-  Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. 
-  Quit via 'q' (or 'Q' if you don't want to save your edits since last session). 
-  Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
-  Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
+  WELCOME TO TELESCOPE - A TERMINAL/CONSOLE PROGRAM FOR THE AMATEUR ASTRONOMER.
+  The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the 
+  apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter
+  a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by pressing TAB, then UP/DOWN cursor keys.
+  Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
+  Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
+  Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' (or 'Q' if you 
+  don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
+  Telescope and eyepiece data is saved in the file '.telescope' in your home directory (backup file is '.telescope.bu').
 
   LIST OF TELESCOPE ABBREVIATIONS:                                           LIST OF EYEPIECE ABBREVIATIONS:
-  APP    = Apperature (in millimeters)                                       FL    = Focal Length (in millimeters)
-  FL     = Focal Length (in millimeters)                                     AFOV  = Apparent Field Of View
-  F/?    = Focal ratio (FL/APP)                                              xMAGN = Magnification (with that telescope)
-  <MAG   = Maximum magnitude visible                                         FOV   = True Field Of View (deg/min/sec)
-  xEYE   = Light gathering compared to the human eye                         XPUP  = Exit pupil (in millimeters)
+  APP    = Apperature (in millimeters)                                       FL     = Focal Length (in millimeters)
+  FL     = Focal Length (in millimeters)                                     AFOV   = Apparent Field Of View
+  F/?    = Focal ratio (FL/APP)                                              xMAGN  = Magnification (with that telescope)
+  <MAG   = Maximum magnitude visible                                         FOV    = True Field Of View (deg/min/sec)
+  xEYE   = Light gathering compared to the human eye                         XPUP   = Exit pupil (in millimeters)
   MINx   = Minimum usable magnification (may be lower for refractors)
   MAXx   = Maximum usable magnification
   *FIELD = Recommended magnification for star fields
@@ -498,7 +493,7 @@ end
 # COMMAND FUNCTIONS   (bottom window, w_cm) 
 def w_cm_show
   @w_cm.fill
-  @w_cm.p(" Telescope v0.2 - By Geir Isene (https://isene.com)")
+  @w_cm.p(" Telescope v0.2 - By Geir Isene (https://isene.com) - press '?' to display the help text")
 end
 def w_cm_getstr(pretext, text) # A SIMPLE READLINE-LIKE ROUTINE
   Curses.curs_set(1)
