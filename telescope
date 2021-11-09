@@ -1,42 +1,45 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
 @help = <<HELPTEXT
-Welcome to Telescope v0.2 - By Geir Isene (https://isene.com). This program is an aid for the amateur astronomer.
-It shows basic info about your telescopes and your eyepieces in combination with your telescopes.
-The top panel lists your telescopes with a set of properties. To add a telescope, press 't' and in the "command line"
-at the bottom enter a name, the apperature (APP) and the focal length (FL) of your telescope, then press ENTER. 
-The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. Enter a name,
-the focal length (FL) and apparent field of view (AFOV) and press ENTER.
-You can select the telescope and eyepiece panel by pressing TAB, and each element of a panel by the UP and DOWN cursor keys. 
-Upon selecting an item, press ENTER and change the values in the command line. Delete an item by pressing 'D'.
-Move an item up or down in a panel by pressing the PgUP or PgDown keys. Refresh all panels with the 'r' key.
-You can escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' or 'Q' if you don't want to
-save your edits since last session. Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
-Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
+  Welcome to Telescope - a terminal/console program for the amateur astronomer.
+  The top panel lists your telescopes. To add a telescope, press 't' and in the "command line"
+  at the bottom enter a name, the apperature (APP) and the focal length (FL) and press ENTER. 
+  The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. 
+  Enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER.
+  Select the telescope and eyepiece panel by pressing TAB, and use the UP, DOWN, HOME and END cursor keys. 
+  Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'.
+  Move an item up or down in a panel by pressing the PgUP or PgDown keys. 
+  Tag items for use in an observation using the SPACE key (untag all with 'u'). Press 'o' to create an observation
+  log file with the tagged equipment. The content of the file is then shown in the lower panel.
+  Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. 
+  Quit via 'q' (or 'Q' if you don't want to save your edits since last session). 
+  Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
+  Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
 
-LIST OF TELESCOPE ABBREVIATIONS:                                           LIST OF EYEPIECE ABBREVIATIONS:
-APP    = Apperature (in millimeters)                                       FL    = Focal Length (in millimeters)
-FL     = Focal Length (in millimeters)                                     AFOV  = Apparent Field Of View
-F/?    = Focal ratio (FL/APP)                                              xMAGN = Magnification (with that telescope)
-<MAG   = Maximum magnitude visible                                         FOV   = True Field Of View (deg/min/sec)
-xEYE   = Light gathering compared to the human eye                         XPUP  = Exit pupil (in millimeters)
-MINx   = Minimum usable magnification (may be lower for refractors)
-MAXx   = Maximum usable magnification
-*FIELD = Recommended magnification for star fields
-GX/NEB = Recommended magnification for galaxies and nebulae
-PL/GCL = Recommended magnification for planets and globular clusters
-PLd/2* = Recommended magnification for planet details and double stars
-TGHT2* = Recommended magnification for tight double stars
-DL-SEP = Minimum separation, Dawes limit
-RC-SEP = Minimum separation, Rayleigh limit
-MOON   = Minimum feature resolved on the Moon (in meters)
-SUN    = Minimum feature resolved on the Sun (in kilometers)
+  LIST OF TELESCOPE ABBREVIATIONS:                                           LIST OF EYEPIECE ABBREVIATIONS:
+  APP    = Apperature (in millimeters)                                       FL    = Focal Length (in millimeters)
+  FL     = Focal Length (in millimeters)                                     AFOV  = Apparent Field Of View
+  F/?    = Focal ratio (FL/APP)                                              xMAGN = Magnification (with that telescope)
+  <MAG   = Maximum magnitude visible                                         FOV   = True Field Of View (deg/min/sec)
+  xEYE   = Light gathering compared to the human eye                         XPUP  = Exit pupil (in millimeters)
+  MINx   = Minimum usable magnification (may be lower for refractors)
+  MAXx   = Maximum usable magnification
+  *FIELD = Recommended magnification for star fields
+  GX/NEB = Recommended magnification for galaxies and nebulae
+  PL/GCL = Recommended magnification for planets and globular clusters
+  PLd/2* = Recommended magnification for planet details and double stars
+  TGHT2* = Recommended magnification for tight double stars
+  DL-SEP = Minimum separation, Dawes limit
+  RC-SEP = Minimum separation, Rayleigh limit
+  MOON   = Minimum feature resolved on the Moon (in meters)
+  SUN    = Minimum feature resolved on the Sun (in kilometers)
 HELPTEXT
 begin # BASIC SETUP
   if `tput cols`.to_i < 140
     puts "You must run Telescope with a minimum tarminal width of 140 chracters."
   end
   require 'io/console'
+  require 'date'
   require 'curses'
   include  Curses
 
@@ -52,6 +55,9 @@ begin # BASIC SETUP
   
   @tsmark = false
   @epmark = false
+
+  @tstag = []
+  @eptag = []
 end
 if File.exist?(Dir.home+'/.telescope')
   load(Dir.home+'/.telescope')
@@ -189,7 +195,7 @@ def main_getkey # GET KEY FROM USER
   when '?' # Show helptext in right window 
     @w_ep.clr
     @w_ep.pa(249, 0, 0, @help)
-    @w_ep.p("\n...Press any key to continue")
+    @w_ep.p("\n  ...Press any key to continue")
     getch
   when 'TAB'
     if @tsmark
@@ -290,6 +296,19 @@ def main_getkey # GET KEY FROM USER
     elsif @epmark
       @epmark = @ep.length - 1
     end
+  when ' '
+    if @tsmark
+      @tstag.include?(@tsmark) ? @tstag.delete(@tsmark) : @tstag.push(@tsmark)
+      @tsmark += 1 unless @tsmark == @ts.length - 1
+    elsif @epmark
+      @eptag.include?(@epmark) ? @eptag.delete(@epmark) : @eptag.push(@epmark)
+      @epmark += 1 unless @epmark == @ep.length - 1
+    end
+  when 'u'
+    @tstag.clear
+    @eptag.clear
+  when 'o'
+    observe
   when 'b'
     File.write(Dir.home+'/.telescope.bu',"@ts = #{@ts}\n@ep = #{@ep}")
   when 'B'
@@ -305,6 +324,62 @@ def main_getkey # GET KEY FROM USER
     exit 0
   else
   end
+end
+def observe
+  @tstag = @tstag.sort
+  @eptag = @eptag.sort
+  date = DateTime.now.strftime "%Y-%m-%d"
+  file = Dir.home + "/" + date + "_observation.txt"
+  obs  = "Observation file: #{file}\n"
+  obs += "Observation date:\n\n"
+  obs += "This file lists the intended equipment for the observation date.\n"
+  obs += "Reference observations with telescope letter and eyepiece numbers (like A2, B1, etc.)\n\n"
+  obs += "─" * 100 + "\n"
+  enum = "ABCDE"
+  @tstag.each_with_index do |t, i|
+    d    = @ts[t][1]
+    f    = @ts[t][2]
+    obs += "Telescope (#{enum[i]}): " + @ts[t][0].ljust(15) + " ("
+    obs += d.to_s + "mm/" + f.to_s + "mm f/" + (f/d.to_f).truncate(1).to_s + ")"
+    mag  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s
+    obs += "  Max MAG: " + mag
+    sepd = (115.824/d).truncate(2).to_s
+    sepr = (3600*Math::asin(671E-6/d)*180/Math::PI).truncate(2).to_s
+    obs += "  Min SEP: " + sepd + "/" + sepr + "\n"
+  end
+  obs += "No telescope(s) chosen for the observation\n" if @tstag.empty?
+  obs += "─" * 100 + "\n"
+  @eptag.each_with_index do |e, i|
+    m    = @ep[e][1]
+    a    = @ep[e][2]
+    obs += "Eyepiece  (#{i+1}): " + @ep[e][0].ljust(15) + " ("
+    obs += m.to_s.rjust(4) + "mm/" + a.to_s.rjust(3) + "°)  "
+    @tstag.each_with_index do |t, j|
+      d    = @ts[t][1]
+      f    = @ts[t][2]
+      obs += enum[j] + ": "
+      mag  = (f.to_f/m)
+      obs += mag.truncate(1).to_s.rjust(5) + "x ("
+      fov  = a/mag
+      deg  = fov.to_i
+      mins = ((fov - fov.to_i) * 60)
+      min  = mins.to_i
+      sec  = ((mins - min) * 60).to_i
+      deg == 0 ? dgo   =  "  " : dgo = deg.to_s + "°"
+      mno  = min.to_s.rjust(2, " ") + "'"
+      sco  = sec.to_s.rjust(2, " ") + "\""
+      obs += (dgo + mno + sco) + ")  "
+    end
+    obs += "\n"
+  end
+  obs += "No eyepiece(s) chosen for the observation\n" if @eptag.empty?
+  obs += "─" * 100 + "\n\n"
+  obs += "Object:              Equipment:               Observation:\n" * 8
+  @w_ep.clr
+  @w_ep.pa(255, 0, 0, obs)
+  @w_ep.p("\n...Press any key to continue")
+  File.write(file, obs)
+  getch
 end
 
 # TELESCOPE FUNCTIONS (top window,    w_ts) 
@@ -322,9 +397,10 @@ def w_ts_show
     out  = " " + name.ljust(15)
     out += d.to_s.rjust(8)
     out += f.to_s.rjust(8)
-    @tsmark == i ? attr = Curses::A_BOLD | Curses::A_REVERSE : attr = Curses::A_BOLD
+    attr = Curses::A_BOLD
+    attr = attr | Curses::A_REVERSE if @tsmark == i
+    attr = attr | Curses::A_UNDERLINE if @tstag.include?(i)
     @w_ts.pa(254, 0, attr, out)
-    out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
     out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
     @w_ts.pa(254, 0, 0, out)
     out  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s.rjust(6)
@@ -390,7 +466,9 @@ def w_ep_show
     out  = " " + name.ljust(15)
     out += m.to_s.rjust(8)
     out += a.to_s.rjust(6) + "°"
-    @epmark == i ? attr = Curses::A_BOLD | Curses::A_REVERSE : attr = Curses::A_BOLD
+    attr = Curses::A_BOLD
+    attr = attr | Curses::A_REVERSE if @epmark == i
+    attr = attr | Curses::A_UNDERLINE if @eptag.include?(i)
     @w_ep.pa(253, 0, attr, out)
     @ts.each do |scope|
       d    = scope[1]
@@ -496,7 +574,7 @@ loop do # OUTER LOOP - (catching refreshes via 'r')
     maxy = Curses.lines
     # Curses::Window.new(h,w,y,x)
     @w_ts = Curses::Window.new(7, maxx - 2, 1, 1)
-    @w_ep = Curses::Window.new(maxy - 10, maxx - 2, 9, 1)
+    @w_ep = Curses::Window.new(maxy - 10, maxx - 2, 8, 1)
     @w_cm = Curses::Window.new(1, maxx, maxy - 1, 0)
     @w_ts.fg, @w_ts.bg =  15,   0
     @w_ep.fg, @w_ep.bg = 255, 232

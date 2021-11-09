@@ -1,27 +1,28 @@
 # Telescope
-This this is a terminal/console program for the amateur astronomer.
+Welcome to Telescope - a terminal/console program for the amateur astronomer.
 
-It shows basic info about your telescopes and your eyepieces in combination with your telescopes.
+The top panel lists your telescopes. To add a telescope, press 't' and in the "command line"
+at the bottom enter a name, the apperature (APP) and the focal length (FL) and press ENTER. 
 
-The top panel lists your telescopes with a set of properties. To add a telescope, press 't' and in the "command line"
-at the bottom enter a name, the apperature (APP) and the focal length (FL) of your telescope, then press ENTER. 
+The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. 
+Enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER.
 
-The lower panel lists your eyepieces with properties for each telescope. To add an eyepiece, press 'e'. Enter a name,
-the focal length (FL) and apparent field of view (AFOV) and press ENTER.
+Select the telescope and eyepiece panel by pressing TAB, and use the UP, DOWN, HOME and END cursor keys. 
 
-You can select the telescope and eyepiece panel by pressing TAB, and each element of a panel by the UP and DOWN cursor keys. 
+Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'.
 
-Upon selecting an item, press ENTER and change the values in the command line. Delete an item by pressing 'D'.
+Move an item up or down in a panel by pressing the PgUP or PgDown keys. 
 
-Move an item up or down in a panel by pressing the PgUP or PgDown keys.
+Tag items for use in an observation using the SPACE key (untag all with 'u'). Press 'o' to create an observation
+log file with the tagged equipment. The content of the file is then shown in the lower panel.
 
-Refresh all panels with the 'r' key.
+Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. 
 
-You can escape the selected panels or the command line by pressing 'Ctrl-G'. 
-
-Quit via 'q' or 'Q' if you don't want to save your edits since last session. Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
+Quit via 'q' (or 'Q' if you don't want to save your edits since last session). 
 
 Save a backup session with 'b' and load a previously saved backup session with the 'B' key.
+
+Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
 
 ## Installation
 You can install telescope by simply coloning this repo and put the file `telescope` in your "bin" directory.
