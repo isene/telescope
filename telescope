@@ -11,23 +11,17 @@
   don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
   Telescope and eyepiece data is saved in the file '.telescope' in your home directory (backup file is '.telescope.bu').
 
-  LIST OF TELESCOPE ABBREVIATIONS:                                           LIST OF EYEPIECE ABBREVIATIONS:
-  APP    = Apperature (in millimeters)                                       FL     = Focal Length (in millimeters)
-  FL     = Focal Length (in millimeters)                                     AFOV   = Apparent Field Of View
-  F/?    = Focal ratio (FL/APP)                                              xMAGN  = Magnification (with that telescope)
-  <MAG   = Maximum magnitude visible                                         FOV    = True Field Of View (deg/min/sec)
-  xEYE   = Light gathering compared to the human eye                         XPUP   = Exit pupil (in millimeters)
-  MINx   = Minimum usable magnification (may be lower for refractors)
-  MAXx   = Maximum usable magnification
-  *FIELD = Recommended magnification for star fields
-  GX/NEB = Recommended magnification for galaxies and nebulae
-  PL/GCL = Recommended magnification for planets and globular clusters
-  PLd/2* = Recommended magnification for planet details and double stars
-  TGHT2* = Recommended magnification for tight double stars
-  DL-SEP = Minimum separation, Dawes limit
-  RC-SEP = Minimum separation, Rayleigh limit
-  MOON   = Minimum feature resolved on the Moon (in meters)
-  SUN    = Minimum feature resolved on the Sun (in kilometers)
+  LIST OF TELESCOPE ABBREVIATIONS:                                                         LIST OF EYEPIECE ABBREVIATIONS:
+  APP, FL, F/? = Apperature and Focal Length (millimeters) and F-ratio                     FL     = Focal Length (in millimeters)
+  <MAG         = Maximum magnitude visible                                                 AFOV   = Apparent Field Of View
+  xEYE         = Light gathering compared to the human eye                                 xMAGN  = Magnification (with that telescope)
+  MINx, MAXx   = Minimum and maximum usable magnification                                  FOV    = True Field Of View (deg/min/sec)
+                                                                                           XPUP   = Exit pupil (in millimeters)
+  Recommended magnifications for objects:
+  *FIELD (star fields), GX/NEB (galaxies/nebulae), PL/GCL (planets/globular clusters), 
+  PLd/2* (planet details/double stars), TGHT2* = tight double stars
+  DL/RC-SEP     = Minimum separation, Dawes limit and Rayleigh limit
+  MOON, SUN     = Minimum feature resolved on the Moon (meters) & Sun (kilometers)
 HELPTEXT
 begin # BASIC SETUP
   if `tput cols`.to_i < 140
