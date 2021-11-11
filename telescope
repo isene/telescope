@@ -4,7 +4,7 @@
   WELCOME TO TELESCOPE - A TERMINAL/CONSOLE PROGRAM FOR THE AMATEUR ASTRONOMER.
   The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the 
   apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter
-  a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by pressing TAB, then UP/DOWN cursor keys.
+  a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by using the TAB/UP/DOWN cursor keys.
   Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
   Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
   Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' (or 'Q' if you 
@@ -54,6 +54,9 @@ end
 class Numeric # NUMERIC CLASS EXTENSION
 	def deg
 	  self * Math::PI / 180 
+  end
+	def rad
+	  self * 180 / Math::PI 
   end
   def dec2
     "%.2f" % self
@@ -246,15 +249,37 @@ def main_getkey # GET KEY FROM USER
     end
   when 'UP' # Examples of moving up and down in a window
     if @tsmark
-      @tsmark -= 1 unless @tsmark == 0
+      if @tsmark == 0
+        @tsmark = false
+      else
+        @tsmark -= 1
+      end
     elsif @epmark
-      @epmark -= 1 unless @epmark == 0
+      if @epmark == 0
+        @epmark = false
+        @tsmark = @ts.length - 1
+      else
+        @epmark -= 1
+      end
+    else
+      @epmark = @ep.length - 1
     end
   when 'DOWN'
     if @tsmark
-      @tsmark += 1 unless @tsmark == @ts.length - 1
+      if @tsmark == @ts.length - 1
+        @tsmark = false
+        @epmark = 0
+      else
+        @tsmark += 1
+      end
     elsif @epmark
-      @epmark += 1 unless @epmark == @ep.length - 1
+      if @epmark == @ep.length - 1
+        @epmark = false
+      else
+        @epmark += 1
+      end
+    else
+      @tsmark = 0
     end
   when 'PgUP'
     if @tsmark
@@ -336,7 +361,7 @@ def observe
     mag  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s
     obs += "  Max MAG: " + mag
     sepd = (115.824/d).truncate(2).to_s
-    sepr = (3600*Math::asin(671E-6/d)*180/Math::PI).truncate(2).to_s
+    sepr = (3600*Math::asin(671E-6/d).rad).truncate(2).to_s
     obs += "  Min SEP: " + sepd + "/" + sepr + "\n"
   end
   obs += "No telescope(s) chosen for the observation\n" if @tstag.empty?
@@ -383,7 +408,7 @@ def w_ts_show
   @w_ts.fg = 15
   @w_ts.bg =  0
   @ts.each_with_index do |scope, i|
-    name = scope[0]
+    name = scope[0][0...15]
     d    = scope[1]
     f    = scope[2]
     out  = " " + name.ljust(15)
@@ -415,9 +440,9 @@ def w_ts_show
     @w_ts.pa(189, 0, 0, out)    # TGHT2*
     out  = (115.824/d).truncate(2).dec2.to_s.rjust(7)
     @w_ts.pa(219, 0, 0, out)    # DL-SEP
-    out  = (3600*Math::asin(671E-6/d)*180/Math::PI).truncate(2).dec2.to_s.rjust(8)
+    out  = (3600*Math::asin(671E-6/d).rad).truncate(2).dec2.to_s.rjust(8)
     @w_ts.pa(219, 0, 0, out)    # RC-SEP
-    moon = (384E6*Math::tan((Math::PI/180*115.824/d)/3600))
+    moon = (384E6*Math::tan((115.824.deg/d)/3600))
     out  = moon.to_i.to_s.rjust(6) + "m"
     @w_ts.pa(225, 0, 0, out)    # MOON
     out  = (moon/2.5668).to_i.to_s.rjust(5) + "km"
@@ -452,7 +477,7 @@ def w_ep_show
   @w_ep.fg = 15
   @w_ep.bg =  0
   @ep.each_with_index do |ep, i|
-    name = ep[0]
+    name = ep[0][0...15]
     m    = ep[1].truncate(1)
     a    = ep[2]
     out  = " " + name.ljust(15)

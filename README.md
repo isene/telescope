@@ -1,7 +1,7 @@
 # Telescope
 Welcome to Telescope - a terminal/console program for the amateur astronomer.
 
-The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by pressing TAB, then UP/DOWN cursor keys. Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
+The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by using the TAB/ UP/DOWN cursor keys. Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
 
 Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
 
