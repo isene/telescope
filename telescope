@@ -402,16 +402,16 @@ end
 # TELESCOPE FUNCTIONS (top window,    w_ts) 
 def w_ts_show
   @w_ts.setpos(0,0)
-  heading = " TELESCOPES       APP(mm)  FL(mm)  F/?  <MAG  xEYE   MINx    MAXx   *FIELD  GX/NEB  PL/GCL  PLd/2*  TGHT2*  DL-SEP  RC-SEP  MOON   SUN"
+  heading = " TELESCOPES          APP(mm)  FL(mm)  F/?  <MAG  xEYE   MINx    MAXx   *FIELD  GX/NEB  PL/GCL  PLd/2*  TGHT2*  DL-SEP  RC-SEP  MOON   SUN"
   heading += " " * (@w_ts.maxx - heading.length).abs
   @w_ts.pa(255, 94, Curses::A_BOLD, heading)
   @w_ts.fg = 15
   @w_ts.bg =  0
   @ts.each_with_index do |scope, i|
-    name = scope[0][0...15]
+    name = scope[0][0...18]
     d    = scope[1]
     f    = scope[2]
-    out  = " " + name.ljust(15)
+    out  = " " + name.ljust(18)
     out += d.to_s.rjust(8)
     out += f.to_s.rjust(8)
     attr = Curses::A_BOLD
@@ -470,17 +470,17 @@ def w_ep_show
   end
   heading = " " * (@w_ep.maxx - @w_ep.curx)
   @w_ep.p(heading)
-  heading = " EYEPIECES         FL(mm)  AFOV "
+  heading = " EYEPIECES            FL(mm)  AFOV "
   heading += "│ xMAGN  FOV(dms)  XPUP " * @ts.length
   heading += " " * (@w_ep.maxx - heading.length).abs
   @w_ep.pa(231, 240, Curses::A_BOLD, heading)
   @w_ep.fg = 15
   @w_ep.bg =  0
   @ep.each_with_index do |ep, i|
-    name = ep[0][0...15]
+    name = ep[0][0...18]
     m    = ep[1].truncate(1)
     a    = ep[2]
-    out  = " " + name.ljust(15)
+    out  = " " + name.ljust(18)
     out += m.to_s.rjust(8)
     out += a.to_s.rjust(6) + "°"
     attr = Curses::A_BOLD
