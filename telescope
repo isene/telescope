@@ -6,6 +6,7 @@
   apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter
   a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by using the TAB/UP/DOWN cursor keys.
   Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
+  Sort telescopes with 'T' (toggles sorting by the first thre columns; Name, APP, FL). Sort eyepieces in the same way with the 'E' key.
   Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
   Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' (or 'Q' if you 
   don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
@@ -45,8 +46,11 @@ begin # BASIC SETUP
   @tsmark = false
   @epmark = false
 
-  @tstag = []
-  @eptag = []
+  @tstag  = []
+  @eptag  = []
+
+  @t_sort = false
+  @e_sort = false
 end
 if File.exist?(Dir.home+'/.telescope')
   load(Dir.home+'/.telescope')
@@ -187,12 +191,12 @@ end
 def main_getkey # GET KEY FROM USER
   chr = getchr
   case chr
-  when '?' # Show helptext in right window 
+  when '?' # Show helptext in lower panel 
     @w_ep.clr
     @w_ep.pa(249, 0, 0, @help)
     @w_ep.p("\n  ...Press any key to continue")
     getch
-  when 'TAB'
+  when 'TAB' # Move between the panels
     if @tsmark
       @tsmark = false
       @epmark = 0
@@ -203,10 +207,10 @@ def main_getkey # GET KEY FROM USER
       @tsmark = 0
       @epmark = false
     end
-  when 'C-G'
+  when 'C-G' # Escape from panel selections or command line
     @epmark = false
     @tsmark = false
-  when 'ENTER'
+  when 'ENTER' # Edit selected item in the command line (or refresh panels)
     if @tsmark
       out  = "#{@ts[@tsmark][0]}, #{@ts[@tsmark][1]}, #{@ts[@tsmark][2]}"
       ret = w_cm_getstr("", out).split(",")
@@ -222,7 +226,7 @@ def main_getkey # GET KEY FROM USER
       ret[2] = ret[2].to_i
       @ep[@epmark] = ret
     end
-  when 't'
+  when 't' # Add a telescope
     return if @ts.length == 5
     ret = w_cm_getstr("", "Telescope, App, FL").split(",")
     return if ret.length != 3
@@ -231,7 +235,7 @@ def main_getkey # GET KEY FROM USER
     ret[1] = 1 if ret[1] == 0
     ret[2] = 1 if ret[2] == 0
     @ts[@ts.length] = ret
-  when 'e'
+  when 'e' # Add an eyepiece
     ret = w_cm_getstr("", "Eyepiece, FL, AFOV").split(",")
     return if ret.length != 3
     ret[1] = ret[1].to_f
@@ -239,7 +243,7 @@ def main_getkey # GET KEY FROM USER
     ret[1] = 1 if ret[1] == 0
     ret[2] = 1 if ret[2] == 0
     @ep[@ep.length] = ret
-  when 'D'
+  when 'D' # Delete selected item (telescope or eyepiece)
     if @tsmark
       @ts.delete_at(@tsmark)
       @tsmark -= 1
@@ -247,7 +251,21 @@ def main_getkey # GET KEY FROM USER
       @ep.delete_at(@epmark)
       @epmark -= 1
     end
-  when 'UP' # Examples of moving up and down in a window
+  when 'T' # Sort telescopes by next column (Name, APP, FL)
+    if @t_sort == false or @t_sort == 2
+      @t_sort = 0
+    else
+      @t_sort += 1
+    end
+    @ts = @ts.sort {|a,b| b[@t_sort] <=> a[@t_sort]}
+  when 'E' # Sort eyepiece by next column (Name, FL, AFOV)
+    if @e_sort == false or @e_sort == 2
+      @e_sort = 0
+    else
+      @e_sort += 1
+    end
+    @ep = @ep.sort {|a,b| b[@e_sort] <=> a[@e_sort]}
+  when 'UP' # Move to one item up
     if @tsmark
       if @tsmark == 0
         @tsmark = false
@@ -264,7 +282,7 @@ def main_getkey # GET KEY FROM USER
     else
       @epmark = @ep.length - 1
     end
-  when 'DOWN'
+  when 'DOWN' # Move to one item down
     if @tsmark
       if @tsmark == @ts.length - 1
         @tsmark = false
@@ -281,7 +299,7 @@ def main_getkey # GET KEY FROM USER
     else
       @tsmark = 0
     end
-  when 'PgUP'
+  when 'PgUP' # Move selected item up by one
     if @tsmark
       t = @ts.delete_at(@tsmark)
       @tsmark -= 1 unless @tsmark == 0
@@ -291,7 +309,7 @@ def main_getkey # GET KEY FROM USER
       @epmark -= 1 unless @epmark == 0
       @ep.insert(@epmark, e)
     end
-  when 'PgDOWN'
+  when 'PgDOWN' # Move selected item by one down
     if @tsmark
       t = @ts.delete_at(@tsmark)
       @tsmark += 1 unless @tsmark == @ts.length
@@ -301,19 +319,19 @@ def main_getkey # GET KEY FROM USER
       @epmark += 1 unless @epmark == @ep.length
       @ep.insert(@epmark, e)
     end
-  when 'HOME'
+  when 'HOME' # Jump to first item in the panel
     if @tsmark
       @tsmark = 0
     elsif @epmark
       @epmark = 0
     end
-  when 'END'
+  when 'END' # Move to last item in the panel
     if @tsmark
       @tsmark = @ts.length - 1
     elsif @epmark
       @epmark = @ep.length - 1
     end
-  when ' '
+  when ' ' # Tag selected item to be used in observation file/log
     if @tsmark
       @tstag.include?(@tsmark) ? @tstag.delete(@tsmark) : @tstag.push(@tsmark)
       @tsmark += 1 unless @tsmark == @ts.length - 1
@@ -321,23 +339,23 @@ def main_getkey # GET KEY FROM USER
       @eptag.include?(@epmark) ? @eptag.delete(@epmark) : @eptag.push(@epmark)
       @epmark += 1 unless @epmark == @ep.length - 1
     end
-  when 'u'
+  when 'u' # Untag all tagget items
     @tstag.clear
     @eptag.clear
-  when 'o'
+  when 'o' # Create observation file/log and show content in lower panel
     observe
-  when 'b'
+  when 'b' # Create backup file (~/.telescope.bu) with current items
     File.write(Dir.home+'/.telescope.bu',"@ts = #{@ts}\n@ep = #{@ep}")
-  when 'B'
+  when 'B' # Read items from backup file
     if File.exist?(Dir.home+'/.telescope.bu')
       load(Dir.home+'/.telescope.bu')
     end
-  when 'r'
+  when 'r' # Hard refres panels
     @break = true
-  when 'q' # Exit 
+  when 'q' # Exit after saving items to ~/.telescope
     File.write(Dir.home+'/.telescope',"@ts = #{@ts}\n@ep = #{@ep}")
     exit 0
-  when 'Q' # Exit 
+  when 'Q' # Exit without saving items
     exit 0
   else
   end
