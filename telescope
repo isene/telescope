@@ -461,7 +461,7 @@ end
 def w_ep_show
   @w_ep.setpos(0,0)
   scopes   = 5
-  heading  = " ".rjust(32)
+  heading  = " ".rjust(35)
   @w_ep.pa(231, 240, 0, heading)
   @ts.each do |scope| 
     @w_ep.pa(231, 240, Curses::A_BOLD, "│ ")
