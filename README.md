@@ -46,3 +46,7 @@ AFOV         | Apparent Field Of View
 xMAGN        | Magnification (with that telescope)
 FOV          | True Field Of View (deg/min/sec)   
 XPUP         | Exit pupil (in millimeters)        
+
+## Screenshot
+
+![Screenshot](screenshot.png?raw=true)
