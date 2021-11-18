@@ -158,7 +158,7 @@ class Curses::Window # CLASS EXTENSION
   end
 end
 def getchr # PROCESS KEY PRESSES
-  c = STDIN.getch
+  c = STDIN.getch(min: 0, time: 0.1)
   case c
   when "\e"    # ANSI escape sequences
     case $stdin.getc
@@ -623,7 +623,11 @@ loop do # OUTER LOOP - (catching refreshes via 'r')
       w_cm_show
       main_getkey        # Get key from user 
       break if @break    # Break to outer loop, redrawing windows, if user hit 'r'
-      break if Curses.cols != maxx or Curses.lines != maxy # break on terminal resize 
+      if Curses.cols != maxx or Curses.lines != maxy # break on terminal resize 
+        close_screen
+        puts " You must run Telescope with a minimum tarminal width of 140 chracters."
+        break
+      end
     end
   ensure # On exit: close curses, clear terminal 
     close_screen
