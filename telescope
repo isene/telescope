@@ -437,34 +437,34 @@ def w_ts_show
     attr = attr | Curses::A_UNDERLINE if @tstag.include?(i)
     @w_ts.pa(254, 0, attr, out) # Basic info (Name, APP, FL)
     out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
-    @w_ts.pa(254, 0, 0, out)    # F/?
+    @w_ts.pa(254, 0, attr, out)    # F/?
     out  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s.rjust(6)
-    @w_ts.pa(229, 0, 0, out)    # <MAG
+    @w_ts.pa(229, 0, attr, out)    # <MAG
     out  = (d**2/49).to_i.to_s.rjust(6)
-    @w_ts.pa(229, 0, 0, out)    # xEYE
+    @w_ts.pa(229, 0, attr, out)    # xEYE
     out  = magx(d, f, 1/7.to_f)
-    @w_ts.pa(157, 0, 0, out)    # MINx
+    @w_ts.pa(157, 0, attr, out)    # MINx
     out  = magx(d, f, 2)
-    @w_ts.pa(157, 0, 0, out)    # MAXx
+    @w_ts.pa(157, 0, attr, out)    # MAXx
     out  = magx(d, f, 1/6.4)
-    @w_ts.pa(195, 0, 0, out)    # *FIELD
+    @w_ts.pa(195, 0, attr, out)    # *FIELD
     out  = magx(d, f, 1/3.6)
-    @w_ts.pa(195, 0, 0, out)    # GX/NEB
+    @w_ts.pa(195, 0, attr, out)    # GX/NEB
     out  = magx(d, f, 1/2.1)
-    @w_ts.pa(195, 0, 0, out)    # PL/GCL
+    @w_ts.pa(195, 0, attr, out)    # PL/GCL
     out  = magx(d, f, 1/1.3)
-    @w_ts.pa(195, 0, 0, out)    # PLd/2*
+    @w_ts.pa(195, 0, attr, out)    # PLd/2*
     out  = magx(d, f, 1/0.7)
-    @w_ts.pa(195, 0, 0, out)    # TGHT2*
+    @w_ts.pa(195, 0, attr, out)    # TGHT2*
     out  = (115.824/d).truncate(2).dec2.to_s.rjust(7)
-    @w_ts.pa(219, 0, 0, out)    # DL-SEP
+    @w_ts.pa(219, 0, attr, out)    # DL-SEP
     out  = (3600*Math::asin(671E-6/d).rad).truncate(2).dec2.to_s.rjust(8)
-    @w_ts.pa(219, 0, 0, out)    # RC-SEP
+    @w_ts.pa(219, 0, attr, out)    # RC-SEP
     moon = (384E6*Math::tan((115.824.deg/d)/3600))
     out  = moon.to_i.to_s.rjust(6) + "m"
-    @w_ts.pa(225, 0, 0, out)    # MOON
+    @w_ts.pa(225, 0, attr, out)    # MOON
     out  = (moon/2.5668).to_i.to_s.rjust(5) + "km"
-    @w_ts.pa(225, 0, 0, out)    # SUN
+    @w_ts.pa(225, 0, attr, out)    # SUN
     @w_ts.p("\n")
   end
   @w_ts.clr_from_cur_line
@@ -509,9 +509,9 @@ def w_ep_show
       d    = scope[1]
       f    = scope[2]
       mag  = (f.to_f/m)
-      @w_ep.pa(254, 0, 0, " │")
+      @w_ep.pa(254, 0, attr, " │")
       out  = mag.truncate(1).to_s.rjust(6)
-      @w_ep.pa(156, 0, 0, out)
+      @w_ep.pa(156, 0, attr, out)
       fov  = a/mag
       deg  = fov.to_i
       mins = ((fov - fov.to_i) * 60)
@@ -521,9 +521,9 @@ def w_ep_show
       mno  = min.to_s.rjust(2, " ") + "'"
       sco  = sec.to_s.rjust(2, " ") + "\""
       out  = (dgo + mno + sco).rjust(10)
-      @w_ep.pa(222, 0, 0, out)
+      @w_ep.pa(222, 0, attr, out)
       out  = (d/mag).truncate(1).to_s.rjust(6)
-      @w_ep.pa(209, 0, 0, out)
+      @w_ep.pa(209, 0, attr, out)
     end
     @w_ep.p("\n")
   end
