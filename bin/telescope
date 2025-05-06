@@ -1,637 +1,510 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-@help = <<HELPTEXT
-  WELCOME TO TELESCOPE - A TERMINAL/CONSOLE PROGRAM FOR THE AMATEUR ASTRONOMER.
-  The top panel lists your telescopes with eyepieces in the lower panel. Add a telescope by pressing 't' and fill in the name, the 
-  apperature (APP) and the focal length (FL) in the "command line" at the bottom and press ENTER. Add an eyepiece with 'e' and enter
-  a name, the focal length (FL) and apparent field of view (AFOV) and press ENTER. Select items by using the TAB/UP/DOWN cursor keys.
-  Press ENTER on a selected item to change the values in the command line. Delete an item by pressing 'D'. Move an with PgUP/PgDown keys. 
-  Sort telescopes with 'T' (toggles sorting by the first thre columns; Name, APP, FL). Sort eyepieces in the same way with the 'E' key.
-  Tag items with the SPACE key (untag all with 'u'), then press 'o' to create an observation log file (content shown in the lower panel).
-  Refresh all panels with the 'r' key. Escape the selected panels or the command line by pressing 'Ctrl-G'. Quit via 'q' (or 'Q' if you 
-  don't want to save your edits since last session). Save a backup session with 'b' and load a saved backup session with the 'B' key.
-  Telescope and eyepiece data is saved in the file '.telescope' in your home directory (backup file is '.telescope.bu').
 
-  LIST OF TELESCOPE ABBREVIATIONS:                                                           LIST OF EYEPIECE ABBREVIATIONS:
-  APP, FL, F/? = Apperature and Focal Length (millimeters) and F-ratio                       FL     = Focal Length (in millimeters)
-  <MAG         = Maximum magnitude visible                                                   AFOV   = Apparent Field Of View
-  xEYE         = Light gathering compared to the human eye                                   xMAGN  = Magnification (with that telescope)
-  MINx, MAXx   = Minimum and maximum usable magnification                                    FOV    = True Field Of View (deg/min/sec)
-                                                                                             XPUP   = Exit pupil (in millimeters)
-  Recommended magnifications for objects:
-        *FIELD = star fields, GX/NEB = galaxies/nebulae, PL/GCL = planets/globular clusters 
-        PLd/2* = planet details/double stars, TGHT2* = tight double stars
-  DL/RC-SEP    = Minimum separation, Dawes limit and Rayleigh limit
-  MOON, SUN    = Minimum feature resolved on the Moon (meters) & Sun (kilometers)
-HELPTEXT
-begin # BASIC SETUP
-  if `tput cols`.to_i < 140
-    puts "You must run Telescope with a minimum tarminal width of 140 chracters."
+# SCRIPT INFO {{{1
+# Name:       Telescope - a tool for amateur astronomers
+# Language:   Pure Ruby, best viewed in VIM
+# Author:     Geir Isene <g@isene.com>
+# Web_site:   http://isene.com/
+# Github:     https://github.com/isene/telescope
+# License:    I release all copyright claims. This code is in the public domain.
+#             Permission is granted to use, copy modify, distribute, and sell
+#             this software for any purpose. I make no guarantee about the
+#             suitability of this software for any purpose and I am not liable
+#             for any damages resulting from its use. Further, I am under no
+#             obligation to maintain or extend this software. It is provided
+#             on an 'as is' basis without any expressed or implied warranty.
+# Docs:       Apart from the extensive documentation found on Github, you can
+#             get a great understanding of the code itself by simply sending
+#             or pasting this whole file into you favorite AI for coding with
+#             a prompt like this: "Help me understand every part of this code".
+
+# SETUP {{{1
+begin
+  require 'rcurses'
+  class Object
+    include Rcurses
+    include Rcurses::Input
   end
-  require 'io/console'
-  require 'date'
-  require 'curses'
-  include  Curses
+rescue StandardError => e
+  puts 'Telescope is built using rcurses (https://github.com/isene/rcurses). Install rcurses to run Telescope.'                                          
+  exit 1                                                                                                                                       
+end                                                                                                                                            
+Pane =  Rcurses::Pane
+require 'date'
 
-  Curses.init_screen
-  Curses.start_color
-  Curses.curs_set(0)
-  Curses.noecho
-  Curses.cbreak
-  Curses.stdscr.keypad = true
+# Persistence paths
+SAVE   = File.join(Dir.home, '.telescope')
 
+# HELP TEXT {{{1
+HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".b + '
+ This can help structure your telescopes and eyepieces.
+ It will calculate properties of your scopes and EPs.
+ Scope+EP combination properties are also calculated. 
+
+ Anything you like to have changed or bugs fixed, 
+ create an issue: https://github.com/isene/telescope 
+ ...or drop me an e-mail: g@isene.com.
+
+ Press any key to show more help text.
+'
+
+HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".b + '
+ t           Add telescope (name,app,fl)
+ e           Add eyepiece  (name,fl,afov)
+ ENTER       Edit selected
+ TAB         Switch panels
+ UP/DOWN     Move cursor
+ Shift-UP    Move item up
+ Shift-DOWN  Move item down
+ HOME/END    Jump to start/end
+ o           Toggle order by Telescope APP and Eyepiece FL
+ SPACE       Tag/untag
+ u           Untag all
+ Ctrl-o      Create observation log with tagged equipment
+ D           Delete item
+ r           Refresh all panes
+ q/Q         Quit (save/no save)
+ ?           Help'.fg(230)
+
+HELP3 = " Abbreviations and their meaning\n".b + '
+ APP   = Telescope apperature (in millimeters)
+ TFL   = Telescope focal length (in millimeters)
+ F/?   = Telescope focal ratio
+ <MGN  = Magnitude limit (dimmest object visible)
+ xEYE  = Times eye light gathering
+ MINx  = Minimum magnification
+ MAXx  = Maximum magnification
+ SEP-R = Rayleigh separation criterion
+ SEP-D = Dawes separation limit
+ *FLD  = EP for star fields
+ GLXY  = EP for galaxies & nebulae
+ PLNT  = EP for planets, globular clusters
+ DBL*  = EP for double stars & planetary details
+ >2*<  = EP for tight double stars
+ MOON  = Smallest detail visible on Moon
+ SUN   = Smallest detail visible on Sun
+
+ FL    = EP focal length (in millimeters)
+ AFOV  = EP apparent field of view
+ MAGX  = Magnification (w/selected telescope)
+ TFOV  = True field of view (w/selected telescope)
+ PPL   = Exit pupil (w/selected telescope)
+ 2BLW  = With a 2xBarlow (magnification, then rest)'.fg(229)
+
+# CLEAR CURSES ON EXIT {{{1
+at_exit do
+  $stdin.cooked!
+  $stdin.echo = true
+  Rcurses.clear_screen
+  Cursor.show
+end
+
+# INITIALIZATION {{{1
+# Data stores
+@ts        = []  # Telescopes: [name, app, fl]
+@ep        = []  # Eyepieces:  [name, fl, afov]
+@tstag     = []  # Telescope tags
+@eptag     = []  # Eyepiece tags
+@cursor_ts = 0   # Telescope cursor index
+@cursor_ep = 0   # Eyepiece cursor index
+
+# Load saved data if present
+SAVE = File.join(Dir.home, '.telescope') # Persistence path
+
+if File.exist?(SAVE)
+  load SAVE   # expects plaintext: @ts = [...] and @ep = [...]
+else
   @ts = []
   @ep = []
-  
-  @tsmark = false
-  @epmark = false
+end
 
-  @tstag  = []
-  @eptag  = []
+@ts_unsorted = @ts.dup
+@ep_unsorted = @ep.dup
 
-  @t_sort = false
-  @e_sort = false
+# Initialize tag arrays to match loaded data
+@tstag = Array.new(@ts.size, false)
+@eptag = Array.new(@ep.size, false)
+
+# CLASS EXTENSIONS {{{1
+# Numeric formatting helper
+class Numeric
+	def deg; self * Math::PI / 180; end
+	def rad; self * 180 / Math::PI; end
+  def rts(n); format("%.#{n}f", self) end
 end
-if File.exist?(Dir.home+'/.telescope')
-  load(Dir.home+'/.telescope')
-end
-class Numeric # NUMERIC CLASS EXTENSION
-	def deg
-	  self * Math::PI / 180 
-  end
-	def rad
-	  self * 180 / Math::PI 
-  end
-  def dec2
-    "%.2f" % self
-  end
-end
-class Curses::Window # CLASS EXTENSION 
-  # General extensions (see https://github.com/isene/Ruby-Curses-Class-Extension)
-  attr_accessor :color, :fg, :bg, :attr, :update
-  # Set self.color for an already defined color pair such as: init_pair(1, 255, 3)
-  # The color pair is defined like this: init_pair(index, foreground, background)
-  # self.fg is set for the foreground color (and is used if self.color is not set)
-  # self.bg is set for the background color (and is used if self.color is not set)
-  # self.attr is set for text attributes like Curses::A_BOLD
-  def clr # Clears the whole window
-    self.setpos(0, 0)
-    self.maxy.times {self.deleteln()}
-    self.refresh
-    self.setpos(0, 0)
-  end
-  def clr_to_cur_line
-    l = self.cury
-    self.setpos(0, 0)
-    l.times {self.deleteln()}
-    self.refresh
-  end
-  def clr_from_cur_line
-    l = self.cury
-    (self.maxy - l).times {self.deleteln()}
-    self.refresh
-    self.setpos(l, 0)
-  end
-  def fill # Fill window with color as set by self.color (or self.bg if not set) 
-    self.setpos(0, 0)
-    self.fill_from_cur_pos
-  end
-  def fill_to_cur_pos # Fills the window up to current line
-    x = self.curx
-    y = self.cury
-    self.setpos(0, 0)
-    blank = " " * self.maxx
-    if self.color == nil
-      self.bg = 0 if self.bg   == nil
-      self.fg = 255 if self.fg == nil
-      init_pair(self.fg, self.fg, self.bg)
-      y.times {self.attron(color_pair(self.fg)) {self << blank}}
-    else
-      y.times {self.attron(color_pair(self.color)) {self << blank}}
-    end
-    self.refresh
-    self.setpos(y, x)
-  end
-  def fill_from_cur_pos # Fills the rest of the window from current line
-    x = self.curx
-    y = self.cury
-    self.setpos(y, 0)
-    blank = " " * self.maxx
-    if self.color == nil
-      self.bg = 0 if self.bg   == nil
-      self.fg = 255 if self.fg == nil
-      init_pair(self.fg, self.fg, self.bg)
-      self.maxy.times {self.attron(color_pair(self.fg)) {self << blank}}
-    else
-      self.maxy.times {self.attron(color_pair(self.color)) {self << blank}}
-    end
-    self.refresh
-    self.setpos(y, x)
-  end
-  def p(text) # Puts text to window
-    self.attr = 0 if self.attr == nil
-    if self.color == nil
-      self.bg = 0 if self.bg   == nil
-      self.fg = 255 if self.fg == nil
-      init_pair(self.fg, self.fg, self.bg)
-      self.attron(color_pair(self.fg) | self.attr) { self << text }
-    else
-      self.attron(color_pair(self.color) | self.attr) { self << text }
-    end
-    self.refresh
-  end
-  def pclr(text) # Puts text to window and clears the rest of the window
-    self.p(text)
-    self.clr_from_cur_line
-  end
-  def paclr(fg, bg, attr, text) # Puts text to window with full set of attributes and clears rest of window
-    self.paclr(fg, bg, attr, text)
-    self.clr_from_cur_line
-  end
-  def pa(fg, bg, attr, text) # Puts text to window with full set of attributes
-    self.fg = fg
-    self.bg = bg
-    self.attr = attr
-    init_pair(self.fg, self.fg, self.bg)
-    self.attron(color_pair(self.fg) | self.attr) { self << text }
-    self.refresh
+
+# Pane class extension
+module Rcurses
+  class Pane
+    attr_accessor :index
   end
 end
-def getchr # PROCESS KEY PRESSES
-  c = STDIN.getch(min: 0, time: 1)
-  case c
-  when "\e"    # ANSI escape sequences
-    case $stdin.getc
-    when '['   # CSI
-      case $stdin.getc
-      when 'A' then chr = "UP"
-      when 'B' then chr = "DOWN"
-      when 'C' then chr = "RIGHT"
-      when 'D' then chr = "LEFT"
-      when 'Z' then chr = "S-TAB"
-      when '2' then chr = "INS"    ; STDIN.getc
-      when '3' then chr = "DEL"    ; STDIN.getc
-      when '5' then chr = "PgUP"   ; STDIN.getc
-      when '6' then chr = "PgDOWN" ; STDIN.getc
-      when '7' then chr = "HOME"   ; STDIN.getc
-      when '8' then chr = "END"    ; STDIN.getc
-      end
-    end
-  when "", "" then chr = "BACK"
-  when "" then chr = "WBACK"
-  when "" then chr = "LDEL"
-  when "" then chr = "C-T"
-  when "" then chr = "C-G"
-  when "\r" then chr = "ENTER"
-  when "\t" then chr = "TAB"
-  when /./  then chr = c
-  end
-  return chr
+
+# OPTICAL FORMULAS {{{1
+def tfr(app, tfl);         (tfl.to_f / app);                           end
+def mlim(app);             (5 * Math::log(app / 10, 10) + 7.5);        end
+def xeye(app);             (app.to_f ** 2 / 49);                       end
+def minx(app, tfl);        (tfl / (7 * tfr(app, tfl)));                end
+def mine(app, tfl);        (7 * tfr(app, tfl));                        end
+def maxx(app);             (2 * app.to_f);                             end
+def maxe(app, tfl);        (tfl / maxx(app));                          end
+def sepr(app);             (3600.0 * Math::asin(671E-6 / app).rad);    end
+def sepd(app);             (115.824 / app);                            end
+def e_st(app, tfl);        (6.4 * tfl / app);                          end
+def e_gx(app, tfl);        (3.6 * tfl / app);                          end
+def e_pl(app, tfl);        (2.1 * tfl / app);                          end
+def e_2s(app, tfl);        (1.3 * tfl / app);                          end
+def e_t2(app, tfl);        (0.7 * tfl / app);                          end
+def moon(tfl);             (384E6*Math::tan((115.824.deg / tfl)/360)); end
+def sun(tfl);              (moon(tfl) / 2.5668);                       end
+def tfov(tfl, epfl, afov); (afov.to_f / magx(tfl, epfl));              end
+def pupl(app, tfl, epfl);  (app.to_f / magx(tfl, epfl));               end
+def magx(tfl, epfl);       (tfl.to_f / epfl);                          end
+
+# FUNCTIONS {{{1
+def refresh_all #{{{2
+  Rcurses.clear_screen
+  @pTS.border   = false
+  @pEP.border   = false
+  @focus.border = true
+  @pTS.full_refresh
+  @pTSh.full_refresh
+  @pEP.full_refresh
+  @pEPh.full_refresh
+  @pST.refresh
 end
-def main_getkey # GET KEY FROM USER
-  chr = getchr
-  case chr
-  when '?' # Show helptext in lower panel 
-    @w_ep.clr
-    @w_ep.pa(249, 0, 0, @help)
-    @w_ep.p("\n  ...Press any key to continue")
-    getch
-  when 'TAB' # Move between the panels
-    if @tsmark
-      @tsmark = false
-      @epmark = 0
-    elsif @epmark
-      @epmark = false
-      @tsmark = false
-    else
-      @tsmark = 0
-      @epmark = false
-    end
-  when 'C-G' # Escape from panel selections or command line
-    @epmark = false
-    @tsmark = false
-  when 'ENTER' # Edit selected item in the command line (or refresh panels)
-    if @tsmark
-      out  = "#{@ts[@tsmark][0]}, #{@ts[@tsmark][1]}, #{@ts[@tsmark][2]}"
-      ret = w_cm_getstr("", out).split(",")
-      return if ret.length != 3
-      ret[1] = ret[1].to_i
-      ret[2] = ret[2].to_i
-      @ts[@tsmark] = ret
-    elsif @epmark
-      out  = "#{@ep[@epmark][0]}, #{@ep[@epmark][1]}, #{@ep[@epmark][2]}"
-      ret = w_cm_getstr("", out).split(",")
-      return if ret.length != 3
-      ret[1] = ret[1].to_f
-      ret[2] = ret[2].to_i
-      @ep[@epmark] = ret
-    end
-  when 't' # Add a telescope
-    return if @ts.length == 5
-    ret = w_cm_getstr("", "Telescope, App, FL").split(",")
-    return if ret.length != 3
-    ret[1] = ret[1].to_i
-    ret[2] = ret[2].to_i
-    ret[1] = 1 if ret[1] == 0
-    ret[2] = 1 if ret[2] == 0
-    @ts[@ts.length] = ret
-  when 'e' # Add an eyepiece
-    ret = w_cm_getstr("", "Eyepiece, FL, AFOV").split(",")
-    return if ret.length != 3
-    ret[1] = ret[1].to_f
-    ret[2] = ret[2].to_i
-    ret[1] = 1 if ret[1] == 0
-    ret[2] = 1 if ret[2] == 0
-    @ep[@ep.length] = ret
-  when 'D' # Delete selected item (telescope or eyepiece)
-    if @tsmark
-      @ts.delete_at(@tsmark)
-      @tsmark -= 1
-    elsif @epmark
-      @ep.delete_at(@epmark)
-      @epmark -= 1
-    end
-  when 'T' # Sort telescopes by next column (Name, APP, FL)
-    if @t_sort == false or @t_sort == 2
-      @t_sort = 0
-    else
-      @t_sort += 1
-    end
-    @ts = @ts.sort {|a,b| b[@t_sort] <=> a[@t_sort]}
-  when 'E' # Sort eyepiece by next column (Name, FL, AFOV)
-    if @e_sort == false or @e_sort == 2
-      @e_sort = 0
-    else
-      @e_sort += 1
-    end
-    @ep = @ep.sort {|a,b| b[@e_sort] <=> a[@e_sort]}
-  when 'UP' # Move to one item up
-    if @tsmark
-      if @tsmark == 0
-        @tsmark = false
-      else
-        @tsmark -= 1
-      end
-    elsif @epmark
-      if @epmark == 0
-        @epmark = false
-        @tsmark = @ts.length - 1
-      else
-        @epmark -= 1
-      end
-    else
-      @epmark = @ep.length - 1
-    end
-  when 'DOWN' # Move to one item down
-    if @tsmark
-      if @tsmark == @ts.length - 1
-        @tsmark = false
-        @epmark = 0
-      else
-        @tsmark += 1
-      end
-    elsif @epmark
-      if @epmark == @ep.length - 1
-        @epmark = false
-      else
-        @epmark += 1
-      end
-    else
-      @tsmark = 0
-    end
-  when 'PgUP' # Move selected item up by one
-    if @tsmark
-      t = @ts.delete_at(@tsmark)
-      @tsmark -= 1 unless @tsmark == 0
-      @ts.insert(@tsmark, t)
-    elsif @epmark
-      e = @ep.delete_at(@epmark)
-      @epmark -= 1 unless @epmark == 0
-      @ep.insert(@epmark, e)
-    end
-  when 'PgDOWN' # Move selected item by one down
-    if @tsmark
-      t = @ts.delete_at(@tsmark)
-      @tsmark += 1 unless @tsmark == @ts.length
-      @ts.insert(@tsmark, t)
-    elsif @epmark
-      e = @ep.delete_at(@epmark)
-      @epmark += 1 unless @epmark == @ep.length
-      @ep.insert(@epmark, e)
-    end
-  when 'HOME' # Jump to first item in the panel
-    if @tsmark
-      @tsmark = 0
-    elsif @epmark
-      @epmark = 0
-    end
-  when 'END' # Move to last item in the panel
-    if @tsmark
-      @tsmark = @ts.length - 1
-    elsif @epmark
-      @epmark = @ep.length - 1
-    end
-  when ' ' # Tag selected item to be used in observation file/log
-    if @tsmark
-      @tstag.include?(@tsmark) ? @tstag.delete(@tsmark) : @tstag.push(@tsmark)
-      @tsmark += 1 unless @tsmark == @ts.length - 1
-    elsif @epmark
-      @eptag.include?(@epmark) ? @eptag.delete(@epmark) : @eptag.push(@epmark)
-      @epmark += 1 unless @epmark == @ep.length - 1
-    end
-  when 'u' # Untag all tagget items
-    @tstag.clear
-    @eptag.clear
-  when 'o' # Create observation file/log and show content in lower panel
-    observe
-  when 'b' # Create backup file (~/.telescope.bu) with current items
-    File.write(Dir.home+'/.telescope.bu',"@ts = #{@ts}\n@ep = #{@ep}")
-  when 'B' # Read items from backup file
-    if File.exist?(Dir.home+'/.telescope.bu')
-      load(Dir.home+'/.telescope.bu')
-    end
-  when 'r' # Hard refres panels
-    @break = true
-  when 'q' # Exit after saving items to ~/.telescope
-    File.write(Dir.home+'/.telescope',"@ts = #{@ts}\n@ep = #{@ep}")
-    exit 0
-  when 'Q' # Exit without saving items
-    exit 0
+
+def render_ts #{{{2
+  @pTS.clear
+  @ts.each_with_index do |t, i|
+    @pTS.text += "\n"
+    name   = t[0]
+    app    = t[1].to_i
+    tfl    = t[2].to_i
+    tag_ts = @tstag[i] ? ' ' + '▐'.b.fg(46) : '  '
+    txt    = tag_ts
+    txt   += name.to_s.ljust(18)
+    txt   += app.to_s.rjust(7)
+    txt   += tfl.to_s.rjust(8)
+    txt   += tfr(app, tfl).rts(1).rjust(6)
+    txt   += mlim(app).rts(1).rjust(6)
+    txt   += xeye(app).rts(0).rjust(6)
+    min    = mine(app, tfl).rts(0)
+    min   += "(" + minx(app, tfl).rts(0) + "x)"
+    txt   += min.rjust(10)
+    max    = maxe(app, tfl).rts(0)
+    max   += "(" + maxx(app).rts(0) + "x)"
+    txt   += max.rjust(9)
+    txt   += sepr(app).rts(2).rjust(7) + '"'
+    txt   += sepd(app).rts(2).rjust(6) + '"'
+    txt   += e_st(app, tfl).rts(0).rjust(7)
+    txt   += e_gx(app, tfl).rts(0).rjust(6)
+    txt   += e_pl(app, tfl).rts(0).rjust(6)
+    txt   += e_2s(app, tfl).rts(0).rjust(6)
+    txt   += e_t2(app, tfl).rts(0).rjust(6)
+    txt   += moon(tfl).rts(0).rjust(7)
+    txt   += sun(tfl).rts(0).rjust(6)
+    txt[0] = '→' if i == @pTS.index
+    # ANSI safe padding
+    pad = @pTS.w - Rcurses.display_width(txt.pure)
+    pad = 0 if pad.negative?
+    txt += ' ' * pad
+    txt = txt.bg(234) if i == @pTS.index
+    txt = txt.fg(248) if i != @pTS.index
+    @pTS.text += txt
+  end
+  @pTS.refresh
+  @pTSh.full_refresh
+end
+
+def ep_nice(app, tfl, e) #{{{2
+  r    = (tfl / app)
+  out  = ' '
+  out += (e/6   >               r ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out += (e/3   > r && e/6   <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out += (e/1.5 > r && e/3   <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out += (e    >= r && e/1.5 <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out += (e     < r               ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out
+end
+
+def render_ep #{{{2
+  app = @ts[@pTS.index][1].to_f
+  tfl = @ts[@pTS.index][2].to_f
+  @pEP.text = "\n"
+  @ep.each_with_index do |e, i|
+    name   = e[0]
+    epfl   = e[1].to_f
+    afov   = e[2].to_f
+    tag_ep = @eptag[i] ? ' ' + '▐'.b.fg(46) : '  '
+    txt    = tag_ep
+    txt   += name.to_s.ljust(18)
+    txt   += epfl.to_s.rjust(7)
+    txt   += afov.to_s.rjust(8)
+    txt   += magx(tfl, epfl).rts(0).rjust(8) + 'x'
+    fov = tfov(tfl, epfl, afov)
+    deg  = fov.to_i
+    min  = ((fov - deg) * 60).to_i
+    sec  = ((fov - deg - min/60.0) * 3600).to_i
+    min_s = format('%02d', min)
+    sec_s = format('%02d', sec)
+    dms = "#{deg}°#{min_s}'#{sec_s}\""
+    txt += dms.rjust(11)
+    txt   += pupl(app, tfl, epfl).rts(1).rjust(6)
+    txt   += (magx(tfl, epfl) * 2).rts(0).rjust(8) + 'x'
+    tfov2 = tfov(tfl, epfl, afov) / 2.0
+    deg2  = tfov2.to_i
+    min2  = ((tfov2 - deg2) * 60).to_i
+    sec2  = ((tfov2 - deg2 - min2/60.0) * 3600).to_i
+    min2_s = format('%02d', min2)
+    sec2_s = format('%02d', sec2)
+    dms2 = "#{deg2}°#{min2_s}'#{sec2_s}\""
+    txt += dms2.rjust(11)
+    txt   += (pupl(app, tfl, epfl) / 2).rts(1).rjust(6)
+    txt    = txt.fg(248) if i != @pEP.index
+    txt   += ep_nice(app, tfl, epfl)
+    txt[0] = '→' if i == @pEP.index
+    # ANSI safe padding
+    pad = @pEP.w - Rcurses.display_width(txt.pure)
+    pad = 0 if pad.negative?
+    txt += ' ' * pad
+    txt = txt.bg(234) if i == @pEP.index
+    @pEP.text += txt
+  end
+  @pEP.refresh
+  @pEPh.full_refresh
+end
+
+def observe #{{{2
+  # Prepare file header
+  date = Date.today.iso8601
+  file = File.join(Dir.home, "#{date}_observation.txt")
+
+  obs  = +"Observation file: #{file}\n"
+  obs << "Observation date: #{date}\n\n"
+  obs << "This file lists the intended equipment for the observation date.\n"
+  obs << "Reference observations with telescope letter and eyepiece numbers (like A2, B1, etc.)\n\n"
+  obs << ("─" * 100) << "\n"
+
+  enum = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+  # Collect and print selected telescopes
+  sel_ts = @tstag.each_index.select { |i| @tstag[i] }
+  if sel_ts.empty?
+    obs << "No telescope(s) chosen for the observation\n"
   else
-  end
-end
-def observe
-  @tstag = @tstag.sort
-  @eptag = @eptag.sort
-  date = DateTime.now.strftime "%Y-%m-%d"
-  file = Dir.home + "/" + date + "_observation.txt"
-  obs  = "Observation file: #{file}\n"
-  obs += "Observation date:\n\n"
-  obs += "This file lists the intended equipment for the observation date.\n"
-  obs += "Reference observations with telescope letter and eyepiece numbers (like A2, B1, etc.)\n\n"
-  obs += "─" * 100 + "\n"
-  enum = "ABCDE"
-  @tstag.each_with_index do |t, i|
-    d    = @ts[t][1]
-    f    = @ts[t][2]
-    obs += "Telescope (#{enum[i]}): " + @ts[t][0].ljust(15) + " ("
-    obs += d.to_s + "mm/" + f.to_s + "mm f/" + (f/d.to_f).truncate(1).to_s + ")"
-    mag  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s
-    obs += "  Max MAG: " + mag
-    sepd = (115.824/d).truncate(2).to_s
-    sepr = (3600*Math::asin(671E-6/d).rad).truncate(2).to_s
-    obs += "  Min SEP: " + sepd + "/" + sepr + "\n"
-  end
-  obs += "No telescope(s) chosen for the observation\n" if @tstag.empty?
-  obs += "─" * 100 + "\n"
-  @eptag.each_with_index do |e, i|
-    m    = @ep[e][1]
-    a    = @ep[e][2]
-    obs += "Eyepiece  (#{i+1}): " + @ep[e][0].ljust(15) + " ("
-    obs += m.to_s.rjust(4) + "mm/" + a.to_s.rjust(3) + "°)  "
-    @tstag.each_with_index do |t, j|
-      d    = @ts[t][1]
-      f    = @ts[t][2]
-      obs += enum[j] + ": "
-      mag  = (f.to_f/m)
-      obs += mag.truncate(1).to_s.rjust(5) + "x ("
-      fov  = a/mag
-      deg  = fov.to_i
-      mins = ((fov - fov.to_i) * 60)
-      min  = mins.to_i
-      sec  = ((mins - min) * 60).to_i
-      deg == 0 ? dgo   =  "  " : dgo = deg.to_s + "°"
-      mno  = min.to_s.rjust(2, " ") + "'"
-      sco  = sec.to_s.rjust(2, " ") + "\""
-      obs += (dgo + mno + sco) + ")  "
+    sel_ts.each_with_index do |ts_idx, idx|
+      name, app_str, tfl_str = @ts[ts_idx]
+      app, tfl = app_str.to_f, tfl_str.to_f
+
+      obs << format(
+        "Telescope (%s): %-15s (%3.0fmm/%4.0fmm f/%.1f)",
+         enum[idx], name, app, tfl, tfr(app, tfl)
+      )
+      obs << format("  Max MAG: %.1f",   mlim(app))
+      obs << format("  Min SEP: %.2f/%.2f\n", sepd(app), sepr(app))
     end
-    obs += "\n"
   end
-  obs += "No eyepiece(s) chosen for the observation\n" if @eptag.empty?
-  obs += "─" * 100 + "\n\n"
-  obs += "Object:              Equipment:               Observation:\n" * 8
-  @w_ep.clr
-  @w_ep.pa(255, 0, 0, obs)
-  @w_ep.p("\n...Press any key to continue")
+
+  obs << ("─" * 100) << "\n"
+
+  # Collect and print selected eyepieces (with per‐telescope TFOV)
+  sel_ep = @eptag.each_index.select { |i| @eptag[i] }
+  if sel_ep.empty?
+    obs << "No eyepiece(s) chosen for the observation\n"
+  else
+    sel_ep.each_with_index do |ep_idx, ep_num|
+      name, epfl_str, afov_str = @ep[ep_idx]
+      epfl, afov = epfl_str.to_f, afov_str.to_f
+
+      obs << format(
+        "Eyepiece  (%d): %-15s (%4.0fmm/%3.0f°)  ",
+         ep_num+1, name, epfl, afov
+      )
+
+      sel_ts.each_with_index do |ts_idx, ts_num|
+        app, tfl = @ts[ts_idx][1].to_f, @ts[ts_idx][2].to_f
+        mag       = magx(tfl, epfl)
+        tf        = tfov(tfl, epfl, afov)
+
+        # Break TFOV into deg, min, sec
+        deg  = tf.to_i
+        min  = ((tf - deg)*60).to_i
+        sec  = ((tf - deg - min/60.0)*3600).to_i
+        angle = format(
+          "%2s%2d'%2d\"",
+          (deg.zero? ? "  " : "#{deg}°"),
+          min, sec
+        )
+        obs << format(
+          "%s:%5.1fx (%s)  ",
+          enum[ts_num], mag, angle
+        )
+      end
+
+      obs << "\n"
+    end
+  end
+
+  obs << ("─" * 100) << "\n\n"
+  obs << ("Object:              Equipment:               Observation:\n" * 8)
+  @pObs.clear
+  @pObs.say(obs)
+  @pST.say(" Press any key to continue")
   File.write(file, obs)
-  getch
+  getchr
 end
 
-# TELESCOPE FUNCTIONS (top window,    w_ts) 
-def w_ts_show
-  @w_ts.setpos(0,0)
-  heading = " TELESCOPES          APP(mm)  FL(mm)  F/?  <MAG  xEYE   MINx    MAXx   *FIELD  GX/NEB  PL/GCL  PLd/2*  TGHT2*  DL-SEP  RC-SEP  MOON   SUN"
-  heading += " " * (@w_ts.maxx - heading.length).abs
-  @w_ts.pa(255, 94, Curses::A_BOLD, heading)
-  @w_ts.fg = 15
-  @w_ts.bg =  0
-  @ts.each_with_index do |scope, i|
-    name = scope[0][0...18]
-    d    = scope[1]
-    f    = scope[2]
-    out  = " " + name.ljust(18)
-    out += d.to_s.rjust(8)
-    out += f.to_s.rjust(8)
-    attr = Curses::A_BOLD
-    attr = attr | Curses::A_REVERSE if @tsmark == i
-    attr = attr | Curses::A_UNDERLINE if @tstag.include?(i)
-    @w_ts.pa(254, 0, attr, out) # Basic info (Name, APP, FL)
-    out  = (f.to_f/d.to_f).truncate(1).to_s.rjust(6)
-    @w_ts.pa(254, 0, attr, out)    # F/?
-    out  = (5 * Math::log(d/10, 10) + 7.5).truncate(1).to_s.rjust(6)
-    @w_ts.pa(229, 0, attr, out)    # <MAG
-    out  = (d**2/49).to_i.to_s.rjust(6)
-    @w_ts.pa(229, 0, attr, out)    # xEYE
-    out  = magx(d, f, 1/7.to_f)
-    @w_ts.pa(157, 0, attr, out)    # MINx
-    out  = magx(d, f, 2)
-    @w_ts.pa(157, 0, attr, out)    # MAXx
-    out  = magx(d, f, 1/6.4)
-    @w_ts.pa(195, 0, attr, out)    # *FIELD
-    out  = magx(d, f, 1/3.6)
-    @w_ts.pa(195, 0, attr, out)    # GX/NEB
-    out  = magx(d, f, 1/2.1)
-    @w_ts.pa(195, 0, attr, out)    # PL/GCL
-    out  = magx(d, f, 1/1.3)
-    @w_ts.pa(195, 0, attr, out)    # PLd/2*
-    out  = magx(d, f, 1/0.7)
-    @w_ts.pa(195, 0, attr, out)    # TGHT2*
-    out  = (115.824/d).truncate(2).dec2.to_s.rjust(7)
-    @w_ts.pa(219, 0, attr, out)    # DL-SEP
-    out  = (3600*Math::asin(671E-6/d).rad).truncate(2).dec2.to_s.rjust(8)
-    @w_ts.pa(219, 0, attr, out)    # RC-SEP
-    moon = (384E6*Math::tan((115.824.deg/d)/3600))
-    out  = moon.to_i.to_s.rjust(6) + "m"
-    @w_ts.pa(225, 0, attr, out)    # MOON
-    out  = (moon/2.5668).to_i.to_s.rjust(5) + "km"
-    @w_ts.pa(225, 0, attr, out)    # SUN
-    @w_ts.p("\n")
-  end
-  @w_ts.clr_from_cur_line
-end
-def magx(d, f, r)
-  m = d * r
-  e = f / m
-  return (m.to_i.to_s + "(" + e.to_i.to_s + ")").rjust(8)
+# PANE SETUP {{{1
+# Top telescopes, eyepieces below, status at bottom
+@max_h, @max_w = IO.console.winsize
+@pTS  = Pane.new( 2,      2,   @max_w - 2,           8, nil, nil)
+@pTSh = Pane.new( 2,      2,   @max_w - 2,           1, 255, "00524b")
+@pTSa = Pane.new( 1, @max_h,       @max_w,           1, 255, "00524b")
+@pEP  = Pane.new( 2,     11,   @max_w - 2, @max_h - 12, nil, nil)
+@pEPh = Pane.new( 2,     11,   @max_w - 2,           1, 255, "4c3c1d")
+@pEPa = Pane.new( 1, @max_h,       @max_w,           1, 255, "4c3c1d")
+@pST  = Pane.new( 1, @max_h,       @max_w,           1, 255, 236)
+
+@pHlp = Pane.new( @max_w/2 - 30, @max_h/2 - 13, 60, 26, 252, 233)
+@pObs = Pane.new( 8, 8, @max_w - 16, @max_h - 16, 231, 233)
+
+@pTSh.text   = ' TELESCOPES          APP(mm)  FL(mm)  F/?  <MGN  xEYE     MINx     MAXx    SEP-R  SEP-D   *FLD  GLXY  PLNT  DBL*  >2*<   MOON   SUN'.b
+@pEPh.text   = ' EYEPIECES            FL(mm)   AFOV'.b 
+@pEPh.text  += '     MAGX      TFOV   PPL      2blw      tfov    ppl'.b.i.fg("00827b")
+@pEPh.text  += '    *FLD  GLXY  PLNT  DBL*  >2*<'.bg("4c3c1d")
+@pST.text    = ' t/e = Add telescope/eyepiece, ENTER = Edit item, q/Q = Quit, ? = Help'
+@pHlp.border = true
+@pObs.border = true
+
+@pTSa.record = true
+@pEPa.record = true
+@pTS.index   = 0
+@pEP.index   = 0
+@sort_ts     = false
+@sort_ep     = false
+@ts_unsorted = @ts.dup
+@ep_unsorted = @ep.dup
+@focus       = @pTS
+@current     = @ts
+
+# TRAP WIN SIZE CHANGE {{{1
+Signal.trap('WINCH') do
+  @h, @w = IO.console.winsize
+  refresh_all
 end
 
-# EYEPIECE FUNCTIONS  (middle window, w_ep)
-def w_ep_show
-  @w_ep.setpos(0,0)
-  scopes   = 5
-  heading  = " ".rjust(35)
-  @w_ep.pa(231, 240, 0, heading)
-  @ts.each do |scope| 
-    @w_ep.pa(231, 240, Curses::A_BOLD, "│ ")
-    heading = scope[0].ljust(22)
-    @w_ep.pa(172, 240, Curses::A_BOLD, heading)
-  end
-  heading = " " * (@w_ep.maxx - @w_ep.curx)
-  @w_ep.p(heading)
-  heading = " EYEPIECES            FL(mm)  AFOV "
-  heading += "│ xMAGN  FOV(dms)  XPUP " * @ts.length
-  heading += " " * (@w_ep.maxx - heading.length).abs
-  @w_ep.pa(231, 240, Curses::A_BOLD, heading)
-  @w_ep.fg = 15
-  @w_ep.bg =  0
-  @ep.each_with_index do |ep, i|
-    name = ep[0][0...18]
-    m    = ep[1].truncate(1)
-    a    = ep[2]
-    out  = " " + name.ljust(18)
-    out += m.to_s.rjust(8)
-    out += a.to_s.rjust(6) + "°"
-    attr = Curses::A_BOLD
-    attr = attr | Curses::A_REVERSE if @epmark == i
-    attr = attr | Curses::A_UNDERLINE if @eptag.include?(i)
-    @w_ep.pa(253, 0, attr, out)
-    @ts.each do |scope|
-      d    = scope[1]
-      f    = scope[2]
-      mag  = (f.to_f/m)
-      @w_ep.pa(254, 0, attr, " │")
-      out  = mag.truncate(1).to_s.rjust(6)
-      @w_ep.pa(156, 0, attr, out)
-      fov  = a/mag
-      deg  = fov.to_i
-      mins = ((fov - fov.to_i) * 60)
-      min  = mins.to_i
-      sec  = ((mins - min) * 60).to_i
-      deg == 0 ? dgo   =  "   " : dgo = deg.to_s + "°"
-      mno  = min.to_s.rjust(2, " ") + "'"
-      sco  = sec.to_s.rjust(2, " ") + "\""
-      out  = (dgo + mno + sco).rjust(10)
-      @w_ep.pa(222, 0, attr, out)
-      out  = (d/mag).truncate(1).to_s.rjust(6)
-      @w_ep.pa(209, 0, attr, out)
+# MAIN LOOP {{{1
+refresh_all
+loop do
+  render_ts
+  render_ep
+  @pST.text = ' t/e = Add telescope/eyepiece, ENTER = Edit item, q/Q = Quit, ? = Help'
+  @pST.full_refresh
+  ch = getchr
+  case ch
+  when 'q'
+    File.write(SAVE, "@ts = #{@ts.inspect}\n@ep = #{@ep.inspect}\n") && exit
+  when 'Q'; exit
+  when '?'
+    @pHlp.full_refresh
+    @pHlp.say(HELP1)
+    getchr
+    @pHlp.say(HELP2)
+    getchr
+    @pHlp.say(HELP3)
+    getchr
+    refresh_all
+  when 'r'
+    refresh_all
+  when 't'
+    inp=@pTSa.ask('name, app, fl: ','').split(', ')
+    next unless inp.size == 3
+    @ts<<inp
+    @tstag<<false
+    @ts_unsorted << inp # keep master list updated
+    @current = @ts
+  when 'e'
+    inp=@pEPa.ask('name, fl, afov: ','').split(', ')
+    next unless inp.size == 3
+    @ep<<inp
+    @eptag<<false
+    @ep_unsorted << inp # keep master list updated
+    @current = @ep
+  when 'ENTER'
+    val = @current[@focus.index].join(', ')
+    arr=@pST.ask('Edit: ', val).split(', '); next unless arr.size==3
+    @current[@focus.index] = arr
+  when 'D'
+    if @current.equal?(@ts)
+      removed = @ts.delete_at(@focus.index)
+      @ts_unsorted.delete(removed)
+      @tstag.delete_at(@focus.index)
+    else
+      removed = @ep.delete_at(@focus.index)
+      @ep_unsorted.delete(removed)
+      @eptag.delete_at(@focus.index)
     end
-    @w_ep.p("\n")
-  end
-  @w_ep.clr_from_cur_line
-end
-
-# COMMAND FUNCTIONS   (bottom window, w_cm) 
-def w_cm_show
-  @w_cm.fill
-  @w_cm.p(" Telescope v0.2 - By Geir Isene (https://isene.com) - press '?' to display the help text")
-end
-def w_cm_getstr(pretext, text) # A SIMPLE READLINE-LIKE ROUTINE
-  Curses.curs_set(1)
-  Curses.echo
-  pos = text.length
-  chr = ""
-  while chr != "ENTER"
-    @w_cm.setpos(0,0)
-    init_pair(250, 250, 238)
-    text += " " * (@w_cm.maxx - text.length) if text.length < @w_cm.maxx
-    @w_cm.attron(color_pair(250)) { @w_cm << pretext + text }
-    @w_cm.setpos(0,pretext.length + pos)
-    @w_cm.refresh
-    chr = getchr
-    if chr == "C-G"
-      Curses.curs_set(0)
-      Curses.noecho
-      @w_cm.update = true
-      return "" 
+  when 'TAB'
+    @focus   = (@focus == @pTS ? @pEP : @pTS)
+    @current = (@current == @ts ? @ep : @ts)
+    @pTS.border   = false
+    @pEP.border   = false
+    @focus.border = true
+    @pTS.border_refresh
+    @pEP.border_refresh
+  when 'UP'
+    @focus.index -= 1
+    @focus.index  = @current.length - 1 if @focus.index < 0
+  when 'DOWN'
+    @focus.index += 1
+    @focus.index  = 0 if @focus.index > @current.length - 1
+    @focus == :ts ? @cursor_ts = 0 : @cursor_ep = 0
+  when 'HOME'
+    @focus.index  = 0
+  when 'END'
+    @focus.index  = @current.length - 1
+  when 'S-UP'
+    @current.insert([@focus.index - 1, 0].max, @current.delete_at(@focus.index))
+    @focus.index -= 1 if @focus.index != 0
+  when 'S-DOWN'
+    @current.insert([@focus.index + 1, @current.size - 1].min, @current.delete_at(@focus.index))
+    @focus.index += 1 if @focus.index != @current.size - 1
+  when 'o' # Toggle-sort the currently focused list
+    if @current.equal?(@ts) # toggling telescopes
+      @sort_ts = !@sort_ts
+      @ts = if @sort_ts
+              @ts_unsorted.sort_by { |t| t[1].to_i }
+            else
+              @ts_unsorted.dup
+            end
+      @current    = @ts
+      @pTS.index  = [@pTS.index, @ts.size - 1].min
+    else # toggling eyepieces
+      @sort_ep = !@sort_ep
+      @ep = if @sort_ep
+              @ep_unsorted.sort_by { |e| e[1].to_i }
+            else
+              @ep_unsorted.dup
+            end
+      @current    = @ep
+      @pEP.index  = [@pEP.index, @ep.size - 1].min
     end
-    case chr
-    when 'RIGHT'
-      pos += 1 unless pos > text.length
-    when 'LEFT'
-      pos -= 1 unless pos == 0
-    when 'HOME'
-      pos = 0
-    when 'END'
-      pos = text.length
-    when 'DEL'
-      text[pos] = ""
-    when 'BACK'
-      unless pos == 0
-        pos -= 1
-        text[pos] = ""
-      end
-    when 'WBACK'
-      unless pos == 0
-        until text[pos - 1] == " " or pos == 0
-          pos -= 1
-          text[pos] = ""
-        end
-        if text[pos - 1] == " "
-          pos -= 1
-          text[pos] = ""
-        end
-      end
-    when 'LDEL'
-      text = ""
-      pos = 0
-    when /^.$/
-      text.insert(pos,chr)
-      pos += 1
+  when ' '   # SPACE: tag/untag current entry
+    if @current.equal?(@ts)
+      idx = @pTS.index
+      @tstag[idx] = !@tstag[idx]
+    else
+      idx = @pEP.index
+      @eptag[idx] = !@eptag[idx]
     end
-  end
-  curstr = text
-  Curses.curs_set(0)
-  Curses.noecho
-  return curstr
-end
-
-# MAIN PROGRAM 
-loop do # OUTER LOOP - (catching refreshes via 'r')
-  @break = false # Initialize @break variable (set if user hits 'r')
-  begin # Create the four windows/panels 
-  if Curses.stdscr.maxx < 140
-    break
-  end
-    Curses.stdscr.bg = 236
-    Curses.stdscr.fg = 236
-    Curses.stdscr.fill
-    maxx = Curses.cols
-    maxy = Curses.lines
-    # Curses::Window.new(h,w,y,x)
-    @w_ts = Curses::Window.new(7, maxx - 2, 1, 1)
-    @w_ep = Curses::Window.new(maxy - 10, maxx - 2, 8, 1)
-    @w_cm = Curses::Window.new(1, maxx, maxy - 1, 0)
-    @w_ts.fg, @w_ts.bg =  15,   0
-    @w_ep.fg, @w_ep.bg = 255, 232
-    @w_cm.fg, @w_cm.bg = 233, 246
-    @w_ts.clr
-    @w_ep.clr
-    @w_cm.fill
-    loop do # INNER, CORE LOOP 
-      w_ts_show
-      w_ep_show
-      w_cm_show
-      main_getkey        # Get key from user 
-      break if @break    # Break to outer loop, redrawing windows, if user hit 'r'
-      if Curses.cols != maxx or Curses.lines != maxy # break on terminal resize 
-        close_screen
-        puts " You must run Telescope with a minimum tarminal width of 140 chracters."
-        break
-      end
-    end
-  ensure # On exit: close curses, clear terminal 
-    close_screen
+  when 'u'
+    @tstag.fill(false)
+    @eptag.fill(false)
+  when 'C-O'
+    observe
   end
 end
 
-# vim: set sw=2 sts=2 et fdm=syntax fdn=2 fcs=fold\:\ :
+# vim: set sw=2 sts=2 et filetype=ruby fdm=marker fdn=2 fcs=fold\:\ :
