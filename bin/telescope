@@ -92,13 +92,6 @@ HELP3 = " Abbreviations and their meaning\n".b + '
  PPL   = Exit pupil (w/selected telescope)
  2BLW  = With a 2xBarlow (magnification, then rest)'.fg(229)
 
-# CLEAR CURSES ON EXIT {{{1
-at_exit do
-  $stdin.cooked!
-  $stdin.echo = true
-  Rcurses.clear_screen
-  Cursor.show
-end
 
 # INITIALIZATION {{{1
 # Data stores
