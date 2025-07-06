@@ -11,8 +11,8 @@ Here are the navigation keys and what they do:
 
 Key         | Meaning
 ------------|-----------------------------------------------------------
-t           | Add telescope (name,app,fl)
-e           | Add eyepiece  (name,fl,afov)
+t           | Add telescope (name,app,fl[,notes])
+e           | Add eyepiece  (name,fl,afov[,notes])
 ENTER       | Edit selected
 TAB         | Switch panels
 UP/DOWN     | Move cursor
@@ -22,13 +22,32 @@ HOME/END    | Jump to start/end
 o           | Toggle order by Telescope APP and Eyepiece FL
 SPACE       | Tag/untag
 u           | Untag all
+A           | Tag all (bulk operation)
 Ctrl-o      | Create observation log with tagged equipment
+x           | Export tagged items to CSV
+X           | Export all items to JSON
+v           | Show version information
 D           | Delete item
 r           | Refresh all panes
 q/Q         | Quit (save/no save)
 ?           | Help
 
-Telescope and eyepiece data is saved in the file '.telescope' in your home directory.
+Telescope and eyepiece data is saved in the file '.telescope' in your home directory. The app now supports:
+
+## What's New in Version 1.5
+
+- **📝 Notes field**: Add optional notes to telescopes and eyepieces
+- **📤 Export functionality**: Export tagged items to CSV or all items to JSON  
+- **🏷️ Bulk operations**: Tag/untag all items at once with 'A'/'u' keys
+- **🎨 Enhanced UI**: Color-coded background highlights for optimal eyepiece ranges
+- **💾 Automatic backups**: Your data is automatically backed up (configurable)
+- **⚙️ Configuration file**: Customize colors and settings via `~/.telescope_config`
+- **✅ Input validation**: Improved error handling and validation
+- **📦 Version checking**: Press 'v' to check for updates from RubyGems
+
+## Configuration
+
+Create a file `~/.telescope_config` to customize colors and settings. See `.telescope_config_example` for available options.
 
 ## Installation
 You can install telescope by simply coloning this repo and put the file `telescope` in your "bin" directory. Or you can simply do `gem install telescope-term`.

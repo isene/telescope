@@ -32,9 +32,16 @@ rescue StandardError => e
 end                                                                                                                                            
 Pane =  Rcurses::Pane
 require 'date'
+require 'fileutils'
+require 'json'
+require 'csv'
+
+# Version
+VERSION = "1.5"
 
 # Persistence paths
 SAVE   = File.join(Dir.home, '.telescope')
+CONFIG = File.join(Dir.home, '.telescope_config')
 
 # HELP TEXT {{{1
 HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".b + '
@@ -50,8 +57,8 @@ HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".b + '
 '
 
 HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".b + '
- t           Add telescope (name,app,fl)
- e           Add eyepiece  (name,fl,afov)
+ t           Add telescope (name,app,fl[,notes])
+ e           Add eyepiece  (name,fl,afov[,notes])
  ENTER       Edit selected
  TAB         Switch panels
  UP/DOWN     Move cursor
@@ -61,7 +68,11 @@ HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".b + '
  o           Toggle order by Telescope APP and Eyepiece FL
  SPACE       Tag/untag
  u           Untag all
+ A           Tag all (bulk operation)
  Ctrl-o      Create observation log with tagged equipment
+ x           Export tagged items to CSV
+ X           Export all items to JSON
+ v           Show version information
  D           Delete item
  r           Refresh all panes
  q/Q         Quit (save/no save)
@@ -93,20 +104,69 @@ HELP3 = " Abbreviations and their meaning\n".b + '
  2BLW  = With a 2xBarlow (magnification, then rest)'.fg(229)
 
 
+# CONFIGURATION {{{1
+# Default configuration
+@config = {
+  'colors' => {
+    'ts_header_bg' => '00524b',
+    'ep_header_bg' => '4c3c1d',
+    'tag_color' => 46,
+    'cursor_bg' => 234,
+    'text_color' => 248,
+    'check_good' => 112,
+    'check_bad' => 208
+  },
+  'auto_backup' => true,
+  'backup_count' => 5
+}
+
+# Load configuration if it exists
+if File.exist?(CONFIG)
+  begin
+    loaded_config = eval(File.read(CONFIG))
+    @config.merge!(loaded_config) if loaded_config.is_a?(Hash)
+  rescue
+    # Use defaults if config file is corrupted
+  end
+end
+
 # INITIALIZATION {{{1
 # Data stores
-@ts        = []  # Telescopes: [name, app, fl]
-@ep        = []  # Eyepieces:  [name, fl, afov]
+@ts        = []  # Telescopes: [name, app, fl, notes]
+@ep        = []  # Eyepieces:  [name, fl, afov, notes]
 @tstag     = []  # Telescope tags
 @eptag     = []  # Eyepiece tags
 @cursor_ts = 0   # Telescope cursor index
 @cursor_ep = 0   # Eyepiece cursor index
 
+# BACKUP SYSTEM {{{1
+def create_backup
+  return unless @config['auto_backup'] && File.exist?(SAVE)
+  
+  backup_dir = File.join(Dir.home, '.telescope_backups')
+  Dir.mkdir(backup_dir) unless Dir.exist?(backup_dir)
+  
+  timestamp = Time.now.strftime('%Y%m%d_%H%M%S')
+  backup_file = File.join(backup_dir, ".telescope_#{timestamp}")
+  
+  FileUtils.cp(SAVE, backup_file)
+  
+  # Clean old backups
+  backups = Dir.glob(File.join(backup_dir, '.telescope_*')).sort
+  while backups.size > @config['backup_count']
+    File.delete(backups.shift)
+  end
+end
+
 # Load saved data if present
 SAVE = File.join(Dir.home, '.telescope') # Persistence path
 
 if File.exist?(SAVE)
+  create_backup
   load SAVE   # expects plaintext: @ts = [...] and @ep = [...]
+  # Convert old format to new format with notes
+  @ts.map! { |t| t.size == 3 ? t + [''] : t }
+  @ep.map! { |e| e.size == 3 ? e + [''] : e }
 else
   @ts = []
   @ep = []
@@ -155,6 +215,40 @@ def tfov(tfl, epfl, afov); (afov.to_f / magx(tfl, epfl));              end
 def pupl(app, tfl, epfl);  (app.to_f / magx(tfl, epfl));               end
 def magx(tfl, epfl);       (tfl.to_f / epfl);                          end
 
+# VALIDATION FUNCTIONS {{{1
+def validate_telescope_input(input_array)
+  return false unless input_array.size >= 3
+  
+  name, app, fl = input_array[0..2]
+  return false if name.nil? || name.strip.empty?
+  return false unless app.to_f > 0
+  return false unless fl.to_f > 0
+  
+  true
+end
+
+def validate_eyepiece_input(input_array)
+  return false unless input_array.size >= 3
+  
+  name, fl, afov = input_array[0..2]
+  return false if name.nil? || name.strip.empty?
+  return false unless fl.to_f > 0
+  return false unless afov.to_f > 0 && afov.to_f <= 180
+  
+  true
+end
+
+def safe_file_write(file, content)
+  begin
+    File.write(file, content)
+    true
+  rescue => e
+    @pST.say(" Error writing file: #{e.message} - Press any key")
+    getchr
+    false
+  end
+end
+
 # FUNCTIONS {{{1
 def refresh_all #{{{2
   Rcurses.clear_screen
@@ -175,7 +269,7 @@ def render_ts #{{{2
     name   = t[0]
     app    = t[1].to_i
     tfl    = t[2].to_i
-    tag_ts = @tstag[i] ? ' ' + '▐'.b.fg(46) : '  '
+    tag_ts = @tstag[i] ? ' ' + '▐'.b.fg(@config['colors']['tag_color']) : '  '
     txt    = tag_ts
     txt   += name.to_s.ljust(18)
     txt   += app.to_s.rjust(7)
@@ -203,8 +297,8 @@ def render_ts #{{{2
     pad = @pTS.w - Rcurses.display_width(txt.pure)
     pad = 0 if pad.negative?
     txt += ' ' * pad
-    txt = txt.bg(234) if i == @pTS.index
-    txt = txt.fg(248) if i != @pTS.index
+    txt = txt.bg(@config['colors']['cursor_bg']) if i == @pTS.index
+    txt = txt.fg(@config['colors']['text_color']) if i != @pTS.index
     @pTS.text += txt
   end
   @pTS.refresh
@@ -213,12 +307,51 @@ end
 
 def ep_nice(app, tfl, e) #{{{2
   r    = (tfl / app)
-  out  = ' '
-  out += (e/6   >               r ? '     ✓'.fg(112) : '     ✗'.fg(208))
-  out += (e/3   > r && e/6   <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
-  out += (e/1.5 > r && e/3   <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
-  out += (e    >= r && e/1.5 <= r ? '     ✓'.fg(112) : '     ✗'.fg(208))
-  out += (e     < r               ? '     ✓'.fg(112) : '     ✗'.fg(208))
+  out  = ''
+  # Enhanced color coding with background highlights for optimal ranges - aligned with header
+  # Header: "    *FLD  GLXY  PLNT  DBL*  >2*< "
+  # Positions:   6    12   18   24   30
+  
+  out += '     '  # 5 spaces to center under *FLD (position 6)
+  
+  if e/6 > r
+    out += ' ✓ '.fg(@config['colors']['check_good']).bg(22)  # Dark green bg for star fields
+  else
+    out += ' ✗ '.fg(@config['colors']['check_bad'])
+  end
+  
+  out += '   '  # 3 spaces to center under GLXY (position 12)
+  
+  if e/3 > r && e/6 <= r
+    out += ' ✓ '.fg(@config['colors']['check_good']).bg(17)  # Dark blue bg for galaxies
+  else
+    out += ' ✗ '.fg(@config['colors']['check_bad'])
+  end
+  
+  out += '   '  # 3 spaces to center under PLNT (position 18)
+  
+  if e/1.5 > r && e/3 <= r
+    out += ' ✓ '.fg(@config['colors']['check_good']).bg(52)  # Dark magenta bg for planets
+  else
+    out += ' ✗ '.fg(@config['colors']['check_bad'])
+  end
+  
+  out += '   '  # 3 spaces to center under DBL* (position 24)
+  
+  if e >= r && e/1.5 <= r
+    out += ' ✓ '.fg(@config['colors']['check_good']).bg(94)  # Orange bg for double stars
+  else
+    out += ' ✗ '.fg(@config['colors']['check_bad'])
+  end
+  
+  out += '   '  # 3 spaces to center under >2*< (position 30)
+  
+  if e < r
+    out += ' ✓ '.fg(@config['colors']['check_good']).bg(88)  # Dark red bg for tight doubles
+  else
+    out += ' ✗ '.fg(@config['colors']['check_bad'])
+  end
+  
   out
 end
 
@@ -230,7 +363,7 @@ def render_ep #{{{2
     name   = e[0]
     epfl   = e[1].to_f
     afov   = e[2].to_f
-    tag_ep = @eptag[i] ? ' ' + '▐'.b.fg(46) : '  '
+    tag_ep = @eptag[i] ? ' ' + '▐'.b.fg(@config['colors']['tag_color']) : '  '
     txt    = tag_ep
     txt   += name.to_s.ljust(18)
     txt   += epfl.to_s.rjust(7)
@@ -255,14 +388,14 @@ def render_ep #{{{2
     dms2 = "#{deg2}°#{min2_s}'#{sec2_s}\""
     txt += dms2.rjust(11)
     txt   += (pupl(app, tfl, epfl) / 2).rts(1).rjust(6)
-    txt    = txt.fg(248) if i != @pEP.index
+    txt    = txt.fg(@config['colors']['text_color']) if i != @pEP.index
     txt   += ep_nice(app, tfl, epfl)
     txt[0] = '→' if i == @pEP.index
     # ANSI safe padding
     pad = @pEP.w - Rcurses.display_width(txt.pure)
     pad = 0 if pad.negative?
     txt += ' ' * pad
-    txt = txt.bg(234) if i == @pEP.index
+    txt = txt.bg(@config['colors']['cursor_bg']) if i == @pEP.index
     @pEP.text += txt
   end
   @pEP.refresh
@@ -349,15 +482,89 @@ def observe #{{{2
   getchr
 end
 
+def export_csv #{{{2
+  date = Date.today.iso8601
+  file = File.join(Dir.home, "telescope_export_#{date}.csv")
+  
+  CSV.open(file, 'w') do |csv|
+    # Export tagged telescopes
+    csv << ['TYPE', 'NAME', 'PARAM1', 'PARAM2', 'PARAM3', 'NOTES']
+    sel_ts = @tstag.each_index.select { |i| @tstag[i] }
+    sel_ts.each do |ts_idx|
+      t = @ts[ts_idx]
+      csv << ['TELESCOPE', t[0], t[1], t[2], '', t[3] || '']
+    end
+    
+    # Export tagged eyepieces
+    sel_ep = @eptag.each_index.select { |i| @eptag[i] }
+    sel_ep.each do |ep_idx|
+      e = @ep[ep_idx]
+      csv << ['EYEPIECE', e[0], e[1], e[2], '', e[3] || '']
+    end
+  end
+  
+  @pST.say(" Exported tagged items to #{file} - Press any key")
+  getchr
+end
+
+def export_json #{{{2
+  date = Date.today.iso8601
+  file = File.join(Dir.home, "telescope_export_#{date}.json")
+  
+  data = {
+    'export_date' => date,
+    'telescopes' => @ts.map { |t| { 'name' => t[0], 'aperture' => t[1], 'focal_length' => t[2], 'notes' => t[3] || '' } },
+    'eyepieces' => @ep.map { |e| { 'name' => e[0], 'focal_length' => e[1], 'afov' => e[2], 'notes' => e[3] || '' } }
+  }
+  
+  File.write(file, JSON.pretty_generate(data))
+  @pST.say(" Exported all items to #{file} - Press any key")
+  getchr
+end
+
+def show_version #{{{2
+  local_version = VERSION
+  
+  begin
+    remote_version = Gem.latest_version_for('telescope-term').version
+    version_info = +" VERSION INFORMATION\n\n"
+    version_info << "Local version: #{local_version}\n"
+    version_info << "Latest RubyGems version: #{remote_version}\n\n"
+    
+    if Gem::Version.new(remote_version) > Gem::Version.new(local_version)
+      version_info << "Update available! Run: gem update telescope-term".fg(@config['colors']['check_bad'])
+    else
+      version_info << "You have the latest version!".fg(@config['colors']['check_good'])
+    end
+    
+    version_info << "\n\nGem info: https://rubygems.org/gems/telescope-term"
+    version_info << "\nSource code: https://github.com/isene/telescope"
+  rescue StandardError => e
+    version_info = +" VERSION INFORMATION\n\n"
+    version_info << "Local version: #{local_version}\n"
+    version_info << "Could not check latest version: #{e.message}".fg(@config['colors']['check_bad'])
+    version_info << "\n\nGem info: https://rubygems.org/gems/telescope-term"
+    version_info << "\nSource code: https://github.com/isene/telescope"
+  end
+  
+  @pObs.clear
+  @pObs.full_refresh
+  @pObs.say(version_info)
+  @pST.say(" Press any key to continue")
+  getchr
+  refresh_all
+end
+
+
 # PANE SETUP {{{1
 # Top telescopes, eyepieces below, status at bottom
 @max_h, @max_w = IO.console.winsize
 @pTS  = Pane.new( 2,      2,   @max_w - 2,           8, nil, nil)
-@pTSh = Pane.new( 2,      2,   @max_w - 2,           1, 255, "00524b")
-@pTSa = Pane.new( 1, @max_h,       @max_w,           1, 255, "00524b")
+@pTSh = Pane.new( 2,      2,   @max_w - 2,           1, 255, @config['colors']['ts_header_bg'])
+@pTSa = Pane.new( 1, @max_h,       @max_w,           1, 255, @config['colors']['ts_header_bg'])
 @pEP  = Pane.new( 2,     11,   @max_w - 2, @max_h - 12, nil, nil)
-@pEPh = Pane.new( 2,     11,   @max_w - 2,           1, 255, "4c3c1d")
-@pEPa = Pane.new( 1, @max_h,       @max_w,           1, 255, "4c3c1d")
+@pEPh = Pane.new( 2,     11,   @max_w - 2,           1, 255, @config['colors']['ep_header_bg'])
+@pEPa = Pane.new( 1, @max_h,       @max_w,           1, 255, @config['colors']['ep_header_bg'])
 @pST  = Pane.new( 1, @max_h,       @max_w,           1, 255, 236)
 
 @pHlp = Pane.new( @max_w/2 - 30, @max_h/2 - 13, 60, 26, 252, 233)
@@ -366,7 +573,7 @@ end
 @pTSh.text   = ' TELESCOPES          APP(mm)  FL(mm)  F/?  <MGN  xEYE     MINx     MAXx    SEP-R  SEP-D   *FLD  GLXY  PLNT  DBL*  >2*<   MOON   SUN'.b
 @pEPh.text   = ' EYEPIECES            FL(mm)   AFOV'.b 
 @pEPh.text  += '     MAGX      TFOV   PPL      2blw      tfov    ppl'.b.i.fg("00827b")
-@pEPh.text  += '    *FLD  GLXY  PLNT  DBL*  >2*<'.bg("4c3c1d")
+@pEPh.text  += '    *FLD  GLXY  PLNT  DBL*  >2*<'.bg(@config['colors']['ep_header_bg'])
 @pST.text    = ' t/e = Add telescope/eyepiece, ENTER = Edit item, q/Q = Quit, ? = Help'
 @pHlp.border = true
 @pObs.border = true
@@ -381,6 +588,7 @@ end
 @ep_unsorted = @ep.dup
 @focus       = @pTS
 @current     = @ts
+@comparison_mode = false
 
 # TRAP WIN SIZE CHANGE {{{1
 Signal.trap('WINCH') do
@@ -398,7 +606,7 @@ loop do
   ch = getchr
   case ch
   when 'q'
-    File.write(SAVE, "@ts = #{@ts.inspect}\n@ep = #{@ep.inspect}\n") && exit
+    safe_file_write(SAVE, "@ts = #{@ts.inspect}\n@ep = #{@ep.inspect}\n") && exit
   when 'Q'; exit
   when '?'
     @pHlp.full_refresh
@@ -412,22 +620,39 @@ loop do
   when 'r'
     refresh_all
   when 't'
-    inp=@pTSa.ask('name, app, fl: ','').split(', ')
-    next unless inp.size == 3
+    inp=@pTSa.ask('name, app, fl [, notes]: ','').split(', ')
+    unless validate_telescope_input(inp)
+      @pST.say(" Invalid input - Press any key")
+      getchr
+      next
+    end
+    inp << '' if inp.size == 3  # Add empty notes if not provided
     @ts<<inp
     @tstag<<false
     @ts_unsorted << inp # keep master list updated
     @current = @ts
   when 'e'
-    inp=@pEPa.ask('name, fl, afov: ','').split(', ')
-    next unless inp.size == 3
+    inp=@pEPa.ask('name, fl, afov [, notes]: ','').split(', ')
+    unless validate_eyepiece_input(inp)
+      @pST.say(" Invalid input - Press any key")
+      getchr
+      next
+    end
+    inp << '' if inp.size == 3  # Add empty notes if not provided
     @ep<<inp
     @eptag<<false
     @ep_unsorted << inp # keep master list updated
     @current = @ep
   when 'ENTER'
     val = @current[@focus.index].join(', ')
-    arr=@pST.ask('Edit: ', val).split(', '); next unless arr.size==3
+    arr=@pST.ask('Edit: ', val).split(', ')
+    is_valid = @current.equal?(@ts) ? validate_telescope_input(arr) : validate_eyepiece_input(arr)
+    unless is_valid
+      @pST.say(" Invalid input - Press any key")
+      getchr
+      next
+    end
+    arr << '' if arr.size == 3  # Add empty notes if not provided
     @current[@focus.index] = arr
   when 'D'
     if @current.equal?(@ts)
@@ -495,6 +720,18 @@ loop do
   when 'u'
     @tstag.fill(false)
     @eptag.fill(false)
+  when 'A'
+    if @current.equal?(@ts)
+      @tstag.fill(true)
+    else
+      @eptag.fill(true)
+    end
+  when 'x'
+    export_csv
+  when 'X'
+    export_json
+  when 'v'
+    show_version
   when 'C-O'
     observe
   end

@@ -1,0 +1,16 @@
+# Example configuration file for Telescope
+# Copy this to ~/.telescope_config and customize as needed
+
+{
+  'colors' => {
+    'ts_header_bg' => '00524b',    # Telescope header background
+    'ep_header_bg' => '4c3c1d',    # Eyepiece header background  
+    'tag_color' => 46,             # Tag indicator color
+    'cursor_bg' => 234,            # Cursor background
+    'text_color' => 248,           # Normal text color
+    'check_good' => 112,           # Good recommendation color
+    'check_bad' => 208             # Bad recommendation color
+  },
+  'auto_backup' => true,           # Enable automatic backups
+  'backup_count' => 5              # Number of backups to keep
+}
