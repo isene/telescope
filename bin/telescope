@@ -37,7 +37,7 @@ require 'json'
 require 'csv'
 
 # Version
-VERSION = "1.5"
+VERSION = "2.0"
 
 # Persistence paths
 SAVE   = File.join(Dir.home, '.telescope')
@@ -597,6 +597,8 @@ Signal.trap('WINCH') do
 end
 
 # MAIN LOOP {{{1
+# Initialize rcurses (required for rcurses 6.0.0+)
+Rcurses.init!
 refresh_all
 loop do
   render_ts
