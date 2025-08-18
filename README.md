@@ -1,4 +1,11 @@
 # Telescope
+
+[![Gem Version](https://badge.fury.io/rb/telescope-term.svg)](https://badge.fury.io/rb/telescope-term)
+[![Ruby](https://img.shields.io/badge/Ruby-CC342D?style=flat&logo=ruby&logoColor=white)](https://www.ruby-lang.org/)
+[![License](https://img.shields.io/badge/License-Public%20Domain-brightgreen.svg)](https://unlicense.org/)
+[![GitHub stars](https://img.shields.io/github/stars/isene/telescope.svg)](https://github.com/isene/telescope/stargazers)
+[![Stay Amazing](https://img.shields.io/badge/Stay-Amazing-blue.svg)](https://isene.org)
+
 <img src="logo.png" align="left" width="150" height="150"> Welcome to Telescope - a terminal/console program for the amateur astronomer.
 
 ***Note: Version 1.0 is a complete rewrite based on the [rcurses library](https://github.com/isene/rcurses)***
