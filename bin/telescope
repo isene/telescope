@@ -37,7 +37,7 @@ require 'json'
 require 'csv'
 
 # Version
-VERSION = "2.0"
+VERSION = "2.0.1"
 
 # Persistence paths
 SAVE   = File.join(Dir.home, '.telescope')
@@ -159,8 +159,6 @@ def create_backup
 end
 
 # Load saved data if present
-SAVE = File.join(Dir.home, '.telescope') # Persistence path
-
 if File.exist?(SAVE)
   create_backup
   load SAVE   # expects plaintext: @ts = [...] and @ep = [...]
@@ -195,47 +193,49 @@ module Rcurses
 end
 
 # OPTICAL FORMULAS {{{1
-def tfr(app, tfl);         (tfl.to_f / app);                           end
-def mlim(app);             (5 * Math::log(app / 10, 10) + 7.5);        end
-def xeye(app);             (app.to_f ** 2 / 49);                       end
-def minx(app, tfl);        (tfl / (7 * tfr(app, tfl)));                end
-def mine(app, tfl);        (7 * tfr(app, tfl));                        end
-def maxx(app);             (2 * app.to_f);                             end
-def maxe(app, tfl);        (tfl / maxx(app));                          end
-def sepr(app);             (3600.0 * Math::asin(671E-6 / app).rad);    end
-def sepd(app);             (115.824 / app);                            end
-def e_st(app, tfl);        (6.4 * tfl / app);                          end
-def e_gx(app, tfl);        (3.6 * tfl / app);                          end
-def e_pl(app, tfl);        (2.1 * tfl / app);                          end
-def e_2s(app, tfl);        (1.3 * tfl / app);                          end
-def e_t2(app, tfl);        (0.7 * tfl / app);                          end
-def moon(tfl);             (384E6*Math::tan((115.824.deg / tfl)/360)); end
-def sun(tfl);              (moon(tfl) / 2.5668);                       end
-def tfov(tfl, epfl, afov); (afov.to_f / magx(tfl, epfl));              end
-def pupl(app, tfl, epfl);  (app.to_f / magx(tfl, epfl));               end
-def magx(tfl, epfl);       (tfl.to_f / epfl);                          end
+def tfr(app, tfl);         return 0.0 if app.to_f == 0; (tfl.to_f / app);                           end
+def mlim(app);             return 0.0 if app.to_f <= 0; (5 * Math::log(app / 10, 10) + 7.5);        end
+def xeye(app);             (app.to_f ** 2 / 49);                                                    end
+def minx(app, tfl);        r = tfr(app, tfl); return 0.0 if r == 0; (tfl / (7 * r));                end
+def mine(app, tfl);        (7 * tfr(app, tfl));                                                     end
+def maxx(app);             (2 * app.to_f);                                                          end
+def maxe(app, tfl);        m = maxx(app); return 0.0 if m == 0; (tfl / m);                          end
+def sepr(app);             return 0.0 if app.to_f == 0; (3600.0 * Math::asin(671E-6 / app).rad);    end
+def sepd(app);             return 0.0 if app.to_f == 0; (115.824 / app);                            end
+def e_st(app, tfl);        return 0.0 if app.to_f == 0; (6.4 * tfl / app);                          end
+def e_gx(app, tfl);        return 0.0 if app.to_f == 0; (3.6 * tfl / app);                          end
+def e_pl(app, tfl);        return 0.0 if app.to_f == 0; (2.1 * tfl / app);                          end
+def e_2s(app, tfl);        return 0.0 if app.to_f == 0; (1.3 * tfl / app);                          end
+def e_t2(app, tfl);        return 0.0 if app.to_f == 0; (0.7 * tfl / app);                          end
+def moon(tfl);             return 0.0 if tfl.to_f == 0; (384E6*Math::tan((115.824.deg / tfl)/360)); end
+def sun(tfl);              (moon(tfl) / 2.5668);                                                    end
+def magx(tfl, epfl);       return 0.0 if epfl.to_f == 0; (tfl.to_f / epfl);                         end
+def tfov(tfl, epfl, afov); m = magx(tfl, epfl); return 0.0 if m == 0; (afov.to_f / m);              end
+def pupl(app, tfl, epfl);  m = magx(tfl, epfl); return 0.0 if m == 0; (app.to_f / m);               end
 
 # VALIDATION FUNCTIONS {{{1
+# Returns nil on success, or an error message string on failure.
 def validate_telescope_input(input_array)
-  return false unless input_array.size >= 3
-  
+  return "Need at least: name, aperture, focal length" unless input_array.size >= 3
+
   name, app, fl = input_array[0..2]
-  return false if name.nil? || name.strip.empty?
-  return false unless app.to_f > 0
-  return false unless fl.to_f > 0
-  
-  true
+  return "Name cannot be empty" if name.nil? || name.strip.empty?
+  return "Aperture must be a positive number" unless app.to_s.strip =~ /\A\d+(\.\d+)?\z/ && app.to_f > 0
+  return "Focal length must be a positive number" unless fl.to_s.strip =~ /\A\d+(\.\d+)?\z/ && fl.to_f > 0
+
+  nil
 end
 
+# Returns nil on success, or an error message string on failure.
 def validate_eyepiece_input(input_array)
-  return false unless input_array.size >= 3
-  
+  return "Need at least: name, focal length, AFOV" unless input_array.size >= 3
+
   name, fl, afov = input_array[0..2]
-  return false if name.nil? || name.strip.empty?
-  return false unless fl.to_f > 0
-  return false unless afov.to_f > 0 && afov.to_f <= 180
-  
-  true
+  return "Name cannot be empty" if name.nil? || name.strip.empty?
+  return "Focal length must be a positive number" unless fl.to_s.strip =~ /\A\d+(\.\d+)?\z/ && fl.to_f > 0
+  return "AFOV must be between 0 and 180 degrees" unless afov.to_s.strip =~ /\A\d+(\.\d+)?\z/ && afov.to_f > 0 && afov.to_f <= 180
+
+  nil
 end
 
 def safe_file_write(file, content)
@@ -306,6 +306,7 @@ def render_ts #{{{2
 end
 
 def ep_nice(app, tfl, e) #{{{2
+  return '' if app.to_f == 0
   r    = (tfl / app)
   out  = ''
   # Enhanced color coding with background highlights for optimal ranges - aligned with header
@@ -356,6 +357,13 @@ def ep_nice(app, tfl, e) #{{{2
 end
 
 def render_ep #{{{2
+  if @ts.empty?
+    @pEP.text = "\n  Add a telescope first (press 't')"
+    @pEP.refresh
+    @pEPh.full_refresh
+    return
+  end
+  @pTS.index = [[@pTS.index, 0].max, @ts.size - 1].min
   app = @ts[@pTS.index][1].to_f
   tfl = @ts[@pTS.index][2].to_f
   @pEP.text = "\n"
@@ -623,8 +631,9 @@ loop do
     refresh_all
   when 't'
     inp=@pTSa.ask('name, app, fl [, notes]: ','').split(', ')
-    unless validate_telescope_input(inp)
-      @pST.say(" Invalid input - Press any key")
+    err = validate_telescope_input(inp)
+    if err
+      @pST.say(" #{err} - Press any key")
       getchr
       next
     end
@@ -635,8 +644,9 @@ loop do
     @current = @ts
   when 'e'
     inp=@pEPa.ask('name, fl, afov [, notes]: ','').split(', ')
-    unless validate_eyepiece_input(inp)
-      @pST.say(" Invalid input - Press any key")
+    err = validate_eyepiece_input(inp)
+    if err
+      @pST.say(" #{err} - Press any key")
       getchr
       next
     end
@@ -646,25 +656,29 @@ loop do
     @ep_unsorted << inp # keep master list updated
     @current = @ep
   when 'ENTER'
+    next if @current.empty?
     val = @current[@focus.index].join(', ')
     arr=@pST.ask('Edit: ', val).split(', ')
-    is_valid = @current.equal?(@ts) ? validate_telescope_input(arr) : validate_eyepiece_input(arr)
-    unless is_valid
-      @pST.say(" Invalid input - Press any key")
+    err = @current.equal?(@ts) ? validate_telescope_input(arr) : validate_eyepiece_input(arr)
+    if err
+      @pST.say(" #{err} - Press any key")
       getchr
       next
     end
     arr << '' if arr.size == 3  # Add empty notes if not provided
     @current[@focus.index] = arr
   when 'D'
+    next if @current.empty?
     if @current.equal?(@ts)
       removed = @ts.delete_at(@focus.index)
       @ts_unsorted.delete(removed)
       @tstag.delete_at(@focus.index)
+      @pTS.index = [[@pTS.index, 0].max, @ts.size - 1].min
     else
       removed = @ep.delete_at(@focus.index)
       @ep_unsorted.delete(removed)
       @eptag.delete_at(@focus.index)
+      @pEP.index = [[@pEP.index, 0].max, @ep.size - 1].min
     end
   when 'TAB'
     @focus   = (@focus == @pTS ? @pEP : @pTS)
@@ -675,20 +689,24 @@ loop do
     @pTS.border_refresh
     @pEP.border_refresh
   when 'UP'
+    next if @current.empty?
     @focus.index -= 1
     @focus.index  = @current.length - 1 if @focus.index < 0
   when 'DOWN'
+    next if @current.empty?
     @focus.index += 1
     @focus.index  = 0 if @focus.index > @current.length - 1
-    @focus == :ts ? @cursor_ts = 0 : @cursor_ep = 0
   when 'HOME'
     @focus.index  = 0
   when 'END'
+    next if @current.empty?
     @focus.index  = @current.length - 1
   when 'S-UP'
+    next if @current.empty?
     @current.insert([@focus.index - 1, 0].max, @current.delete_at(@focus.index))
     @focus.index -= 1 if @focus.index != 0
   when 'S-DOWN'
+    next if @current.empty?
     @current.insert([@focus.index + 1, @current.size - 1].min, @current.delete_at(@focus.index))
     @focus.index += 1 if @focus.index != @current.size - 1
   when 'o' # Toggle-sort the currently focused list
@@ -712,6 +730,7 @@ loop do
       @pEP.index  = [@pEP.index, @ep.size - 1].min
     end
   when ' '   # SPACE: tag/untag current entry
+    next if @current.empty?
     if @current.equal?(@ts)
       idx = @pTS.index
       @tstag[idx] = !@tstag[idx]
