@@ -44,7 +44,7 @@ SAVE   = File.join(Dir.home, '.telescope')
 CONFIG = File.join(Dir.home, '.telescope_config')
 
 # HELP TEXT {{{1
-HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".b + '
+HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".bd + '
  This can help structure your telescopes and eyepieces.
  It will calculate properties of your scopes and EPs.
  Scope+EP combination properties are also calculated. 
@@ -56,7 +56,7 @@ HELP1 = " WELCOME TO THE TERMINAL TELESCOPE APPLICATION\n".b + '
  Press any key to show more help text.
 '
 
-HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".b + '
+HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".bd + '
  t           Add telescope (name,app,fl[,notes])
  e           Add eyepiece  (name,fl,afov[,notes])
  ENTER       Edit selected
@@ -78,7 +78,7 @@ HELP2 = " TERMININAL TELESCOPE APPLICATION\n\n Keys and their actions\n".b + '
  q/Q         Quit (save/no save)
  ?           Help'.fg(230)
 
-HELP3 = " Abbreviations and their meaning\n".b + '
+HELP3 = " Abbreviations and their meaning\n".bd + '
  APP   = Telescope apperature (in millimeters)
  TFL   = Telescope focal length (in millimeters)
  F/?   = Telescope focal ratio
@@ -269,7 +269,7 @@ def render_ts #{{{2
     name   = t[0]
     app    = t[1].to_i
     tfl    = t[2].to_i
-    tag_ts = @tstag[i] ? ' ' + '▐'.b.fg(@config['colors']['tag_color']) : '  '
+    tag_ts = @tstag[i] ? ' ' + '▐'.bd.fg(@config['colors']['tag_color']) : '  '
     txt    = tag_ts
     txt   += name.to_s.ljust(18)
     txt   += app.to_s.rjust(7)
@@ -371,7 +371,7 @@ def render_ep #{{{2
     name   = e[0]
     epfl   = e[1].to_f
     afov   = e[2].to_f
-    tag_ep = @eptag[i] ? ' ' + '▐'.b.fg(@config['colors']['tag_color']) : '  '
+    tag_ep = @eptag[i] ? ' ' + '▐'.bd.fg(@config['colors']['tag_color']) : '  '
     txt    = tag_ep
     txt   += name.to_s.ljust(18)
     txt   += epfl.to_s.rjust(7)
@@ -578,9 +578,9 @@ end
 @pHlp = Pane.new( @max_w/2 - 30, @max_h/2 - 13, 60, 26, 252, 233)
 @pObs = Pane.new( 8, 8, @max_w - 16, @max_h - 16, 231, 233)
 
-@pTSh.text   = ' TELESCOPES          APP(mm)  FL(mm)  F/?  <MGN  xEYE     MINx     MAXx    SEP-R  SEP-D   *FLD  GLXY  PLNT  DBL*  >2*<   MOON   SUN'.b
-@pEPh.text   = ' EYEPIECES            FL(mm)   AFOV'.b 
-@pEPh.text  += '     MAGX      TFOV   PPL      2blw      tfov    ppl'.b.i.fg("00827b")
+@pTSh.text   = ' TELESCOPES          APP(mm)  FL(mm)  F/?  <MGN  xEYE     MINx     MAXx    SEP-R  SEP-D   *FLD  GLXY  PLNT  DBL*  >2*<   MOON   SUN'.bd
+@pEPh.text   = ' EYEPIECES            FL(mm)   AFOV'.bd
+@pEPh.text  += '     MAGX      TFOV   PPL      2blw      tfov    ppl'.bd.it.fg("00827b")
 @pEPh.text  += '    *FLD  GLXY  PLNT  DBL*  >2*<'.bg(@config['colors']['ep_header_bg'])
 @pST.text    = ' t/e = Add telescope/eyepiece, ENTER = Edit item, q/Q = Quit, ? = Help'
 @pHlp.border = true
